@@ -1,0 +1,644 @@
+CLASS zfin_cl_aaro_amdp DEFINITION
+  PUBLIC
+  FINAL
+  CREATE PUBLIC .
+
+  PUBLIC SECTION.
+
+    INTERFACES if_amdp_marker_hdb.
+    TYPES: BEGIN OF ty_acdoca,
+             mandt              TYPE  mandt,
+             rbukrs             TYPE  zfin_aaro_company,
+             gjahr              TYPE  gjahr,
+             poper              TYPE  poper,
+             source             TYPE  zfin_aaro_source,
+             aaro_acct_cat      TYPE  zfin_aaro_acct_cat,
+             rassc              TYPE  zfin_aaro_trading_partner,
+             ktopl              TYPE  ktopl,
+             racct              TYPE  racct,
+             prctr              TYPE  prctr,
+             rtcur              TYPE  fins_currt,
+             rhcur              TYPE  rwcur,
+             rfarea             TYPE  fkber,
+             aaro_counter_prctr TYPE  zfin_aaro-aaro_counter_prctr,
+             tsl                TYPE  zfin_aaro_tsl, " fins_vwcur12,
+             hsl                TYPE  zfin_aaro_hsl, " fins_vhcur12,
+             osl                TYPE  zfin_aaro_osl,
+             setname            TYPE  setnamenew,
+             s4_prctr           TYPE prctr,          "S4 PRCTR
+             s4_gl_acct         TYPE racct,
+             prctri_relevant    TYPE zfin_prctri_rel,
+             drcrk              TYPE shkzg,
+             debit_indicator    TYPE zfin_debit_ind,
+             credit_indicator   TYPE zfin_credit_ind,
+             net_amnt           TYPE zfin_tot_amnt,
+             aaro_delta         TYPE zfin_delta,
+             ihc_relevant       TYPE zfin_ihc_relevant,
+             gv_sum_relevant    TYPE zfin_gv_sum_relevant,
+           END OF ty_acdoca.
+
+    TYPES: BEGIN OF ty_zfin_aaro_netmant,
+             mandt              TYPE  mandt,
+             rbukrs             TYPE  zfin_aaro_company,
+             gjahr              TYPE  gjahr,
+             poper              TYPE  poper,
+             source             TYPE  zfin_aaro_source,
+             aaro_acct_cat      TYPE  zfin_aaro_acct_cat,
+             rassc              TYPE  zfin_aaro_trading_partner,
+             ktopl              TYPE  ktopl,
+             racct              TYPE  racct,
+             prctr              TYPE  prctr,
+             rtcur              TYPE  fins_currt,
+             rhcur              TYPE  rwcur,
+             rfarea             TYPE  fkber,
+             aaro_counter_prctr TYPE  zfin_aaro-aaro_counter_prctr,
+             tsl                TYPE  zfin_aaro_tsl, " fins_vwcur12,
+             hsl                TYPE  zfin_aaro_hsl, " fins_vhcur12
+             osl                TYPE zfin_aaro_osl,
+             setname            TYPE  setnamenew,
+             s4_prctr           TYPE prctr,          "S4 PRCTR
+             s4_gl_acct         TYPE racct,
+             prctri_relevant    TYPE zfin_prctri_rel,
+             drcrk              TYPE shkzg,
+             debit_indicator    TYPE zfin_debit_ind,
+             credit_indicator   TYPE zfin_credit_ind,
+             net_amnt           TYPE zfin_tot_amnt,
+             aaro_delta         TYPE zfin_delta,
+             ihc_relevant       TYPE zfin_ihc_relevant,
+             gv_sum_relevant    TYPE zfin_gv_sum_relevant,
+           END OF ty_zfin_aaro_netmant,
+
+           BEGIN OF ty_partner,
+             partner  TYPE bu_partner,
+             type     TYPE bu_id_type,
+             idnumber TYPE bu_id_number,
+           END OF ty_partner,
+           BEGIN OF ty_collect_acdoca,
+             rbukrs             TYPE  zfin_aaro_company,
+             gjahr              TYPE  gjahr,
+             poper              TYPE  poper,
+             source             TYPE  zfin_aaro_source,
+             aaro_acct_cat      TYPE  zfin_aaro_acct_cat,
+             rassc              TYPE  zfin_aaro_trading_partner,
+             ktopl              TYPE  ktopl,
+             racct              TYPE  racct,
+             prctr              TYPE  prctr,
+             rtcur              TYPE  fins_currt,
+             rhcur              TYPE  rwcur,
+             aaro_counter_prctr TYPE  zfin_aaro-aaro_counter_prctr,
+             tsl                TYPE  zfin_aaro_tsl, " fins_vwcur12,
+             hsl                TYPE  zfin_aaro_hsl, " fins_vhcur12,
+             osl                TYPE  zfin_aaro_osl,
+             rfarea             TYPE  fkber,
+             setname            TYPE  setnamenew,
+             s4_prctr           TYPE  prctr,          "S4 PRCTR
+             s4_gl_acct         TYPE  racct,
+             prctri_relevant    TYPE  zfin_prctri_rel,
+             drcrk              TYPE  shkzg,
+             debit_indicator    TYPE zfin_debit_ind,
+             credit_indicator   TYPE zfin_credit_ind,
+             gv_sum_relevant    TYPE zfin_gv_sum_relevant,
+*             setname            TYPE  setnamenew,
+           END OF ty_collect_acdoca,
+           BEGIN OF ty_acdoca_display,
+             rbukrs             TYPE  zfin_aaro_company,
+             gjahr              TYPE  gjahr,
+             poper              TYPE  poper,
+             source             TYPE  zfin_aaro_source,
+             aaro_acct_cat      TYPE  zfin_aaro_acct_cat,
+             rassc              TYPE  zfin_aaro_trading_partner,
+             ktopl              TYPE  ktopl,
+             racct              TYPE  racct,
+             prctr              TYPE  prctr,
+             rtcur              TYPE  fins_currt,
+             rhcur              TYPE  rwcur,
+             aaro_counter_prctr TYPE  zfin_aaro-aaro_counter_prctr,
+             setname            TYPE  setnamenew,
+             tsl                TYPE  zfin_aaro_wsl, " fins_vwcur12,
+             hsl                TYPE  zfin_aaro_hsl, " fins_vhcur12,
+           END OF ty_acdoca_display,
+           BEGIN OF ty_s4_gl,
+             aaro_company         TYPE zfin_aaro_company,
+             gjahr                TYPE gjahr,
+             poper                TYPE poper,
+             aaro_source          TYPE zfin_aaro_source,
+             aaro_acct_cat        TYPE zfin_aaro_acct_cat,
+             aaro_trading_partner TYPE zfin_aaro_trading_partner,
+             setname              TYPE  setnamenew,
+             s4_gl_acct           TYPE racct,
+             aaro_gl_account      TYPE zfin_aaro_gl_account,
+             rfarea               TYPE fkber,
+             s4_profit_centre     TYPE prctr,
+             aaro_profit_center   TYPE zfin_aaro_profit_center,
+             prctri_relevant      TYPE zfin_prctri_rel,
+             aaro_counter_prctr   TYPE zfin_aaro_counter_prctr,
+             drcrk                TYPE shkzg,
+             debit_indicator      TYPE zfin_debit_ind,
+             credit_indicator     TYPE zfin_credit_ind,
+             rtcur                TYPE fins_currt,
+             rhcur                TYPE fins_currh,
+             tsl                  TYPE zfin_aaro_tsl,
+             hsl                  TYPE zfin_aaro_hsl,
+
+           END OF ty_s4_gl,
+           BEGIN OF ty_zero_amnt,
+             parameter TYPE bapi_param,
+             hsl       TYPE zfin_aaro_hsl,
+           END OF ty_zero_amnt.
+
+    TYPES: tt_acdoca           TYPE STANDARD TABLE OF ty_acdoca,
+           tt_zfin_aaro        TYPE STANDARD TABLE OF zfin_s_aaro,
+           tt_zfin_aaro_exists TYPE STANDARD TABLE OF zfin_aaro,
+           tt_partner          TYPE STANDARD TABLE OF ty_partner,
+           tt_zfin_aaro_gl     TYPE STANDARD TABLE OF zfin_aaro_glacct,
+           tt_zfin_aaro_netmnt TYPE STANDARD TABLE OF ty_zfin_aaro_netmant,
+           tt_collect_acdoca   TYPE STANDARD TABLE OF ty_collect_acdoca,
+           tt_acdoca_display   TYPE STANDARD TABLE OF   ty_acdoca_display,
+           tt_s4_gl            TYPE STANDARD TABLE OF ty_s4_gl,
+           tt_zero_amnt        TYPE STANDARD TABLE OF ty_zero_amnt.
+
+    CLASS-METHODS: get_gl_account
+      IMPORTING VALUE(iv_mandt)   TYPE mandt
+                VALUE(iv_gjahr)   TYPE gjahr
+                VALUE(iv_source)  TYPE char12
+                VALUE(it_acdoca)  TYPE tt_acdoca
+                VALUE(iv_poper)   TYPE poper
+      EXPORTING VALUE(et_acdoca)  TYPE tt_acdoca
+                VALUE(et_partner) TYPE tt_partner .
+
+
+
+    CLASS-METHODS get_net_amnt_set
+      IMPORTING VALUE(iv_mandt)  TYPE mandt
+                VALUE(iv_source) TYPE char12
+                VALUE(it_acdoca) TYPE tt_acdoca
+      EXPORTING VALUE(et_acdoca) TYPE tt_zfin_aaro_netmnt.
+
+    CLASS-METHODS fetch_update_aaro_table
+      IMPORTING VALUE(iv_mandt)           TYPE mandt
+                VALUE(iv_rbukrs)          TYPE zfin_aaro_company
+                VALUE(iv_gjahr)           TYPE gjahr
+                VALUE(iv_poper)           TYPE poper
+                VALUE(iv_source)          TYPE zfin_aaro_source
+                VALUE(it_zfin_aaro)       TYPE tt_zfin_aaro OPTIONAL
+                VALUE(it_acdoca)          TYPE tt_acdoca_display
+      EXPORTING VALUE(et_zfin_aaro)       TYPE tt_zfin_aaro
+                VALUE(et_zfin_aaro_exist) TYPE tt_zfin_aaro_exists
+                VALUE(et_zfin_aaro1)      TYPE tt_zfin_aaro
+                VALUE(et_zfin_aaro_i)     TYPE tt_zfin_aaro
+                VALUE(et_zfin_aaro_r)     TYPE tt_zfin_aaro.
+
+    CLASS-METHODS prepare_aaro_period_lines
+      IMPORTING VALUE(iv_mandt)              TYPE mandt
+                VALUE(iv_source)             TYPE char12
+                VALUE(iv_gjahr)              TYPE gjahr
+                VALUE(iv_poper)              TYPE poper
+                VALUE(iv_rbukrs)             TYPE zfin_aaro_company
+                VALUE(it_aaro_lines_collect) TYPE tt_collect_acdoca
+                VALUE(it_acdoca)             TYPE tt_acdoca
+      EXPORTING VALUE(et_s4_gl)              TYPE tt_s4_gl
+                VALUE(et_aaro_lines)         TYPE tt_acdoca_display
+                VALUE(et_zfin_aaro)          TYPE tt_zfin_aaro
+                VALUE(et_zfin_zero_amnt)     TYPE tt_zero_amnt
+                VALUE(et_zfin_aaro_exists)   TYPE tt_zfin_aaro_exists
+                VALUE(et_zfin_aaro_i)        TYPE tt_zfin_aaro
+                VALUE(et_zfin_aaro_r)        TYPE tt_zfin_aaro.
+  PROTECTED SECTION.
+  PRIVATE SECTION.
+ENDCLASS.
+
+
+
+CLASS zfin_cl_aaro_amdp IMPLEMENTATION.
+
+
+  METHOD get_net_amnt_set BY DATABASE PROCEDURE FOR HDB LANGUAGE SQLSCRIPT
+                             OPTIONS READ-ONLY  .
+****Method to get net amount by setnae
+    lt_acdoca = select gjahr,setname,sum( hsl ) as hsl
+                          from :it_acdoca
+                          GROUP BY gjahr,setname;
+
+    et_acdoca = select a.mandt,a.rbukrs,a.gjahr,a.poper,a.source,
+                             a.aaro_acct_cat,a.rassc,
+                             a.ktopl,a.racct,a.prctr,a.rtcur,a.rhcur,
+                             a.rfarea,a.aaro_counter_prctr,a.tsl,a.hsl,a.osl,
+                             a.setname,a.prctr as s4_prctr,
+                             a.racct as s4_gl_acct,
+                             a.prctri_relevant,
+                             a.drcrk,a.debit_indicator,a.credit_indicator
+                             ,b.hsl as net_amnt,'' as aaro_delta,a.ihc_relevant,a.gv_sum_relevant
+                          from :it_acdoca as a
+                          inner join :lt_acdoca as b
+                          on a.gjahr = b.gjahr
+                          and a.setname = b.setname;
+
+
+  ENDMETHOD.
+
+
+  METHOD get_gl_account BY DATABASE PROCEDURE FOR HDB LANGUAGE SQLSCRIPT
+                              USING but0id
+                                   zfin_cl_aaro_amdp=>get_net_amnt_set.
+
+**** Get Partner
+    lt_partner_rbukrs = select mandt,rbukrs as partner from :it_acdoca where mandt = :iv_mandt;
+    lt_partner_rassc  = select mandt,rassc as partner from :it_acdoca  where mandt = :iv_mandt;
+
+*** Partner table
+    lt_partner = select mandt,partner from :lt_partner_rbukrs
+                 union all
+                 select mandt,partner from :lt_partner_rassc
+                 order by partner;
+
+*** Get ID number from BUT0ID table
+   lt_but0id = select DISTINCT a.partner,a.type,a.idnumber
+                      from but0id as a
+                      inner join :lt_partner as b
+                      on a.partner = b.partner
+                      and a.client  = b.mandt
+                      where a.type = 'YAAROC'
+                     and a.partner <> '';
+
+   et_partner = select * from :lt_but0id order by partner;
+
+*** Change ACDOCA Table
+   lt_zfin_Acdoca = select  a.mandt,a.rbukrs,:iv_gjahr as gjahr,:iv_poper as poper,:iv_source as source,
+                            a.aaro_acct_cat,b.idnumber as rassc,
+                            a.ktopl,a.racct,a.prctr,a.rtcur,a.rhcur,
+                            coalesce( rfarea,' ')as rfarea,a.aaro_counter_prctr,a.tsl,a.hsl,a.osl,
+                            a.setname,a.prctr as s4_prctr,
+                            a.racct as s4_gl_acct,
+                            a.prctri_relevant,
+                            a.drcrk,a.debit_indicator,a.credit_indicator,a.net_amnt,'' as aaro_Delta,ihc_Relevant,a.gv_sum_relevant
+                            from :it_acdoca as a
+                            left OUTER join :lt_but0id as b
+                            on a.rassc = b.partner;
+
+   call  "ZFIN_CL_AARO_AMDP=>GET_NET_AMNT_SET"(
+             iv_mandt  => :iv_mandt ,
+             iv_source => :iv_source,
+             it_acdoca => :lt_zfin_Acdoca ,
+              et_acdoca => :et_acdoca
+         );
+** et_acdoca = select * from :lt_zfin_Acdoca;
+
+  ENDMETHOD .
+
+
+  METHOD fetch_update_aaro_table BY DATABASE PROCEDURE FOR HDB LANGUAGE SQLSCRIPT
+                            OPTIONS READ-ONLY USING zfin_aaro.
+
+*** Get Existing values from the AARO table
+
+    lt_Zfin_Aaro_exist =  select * from zfin_aaro where aaro_Company = :iv_rbukrs
+                                                  and   gjahr        = :iv_gjahr
+                                                  and   poper        = :iv_poper
+                                                  AND   AARO_sOURCE  = :iv_source
+                                                  and mandt          = :iv_mandt;
+
+    et_zfin_Aaro_exist = select * from :lt_Zfin_Aaro_exist;
+
+    et_zfin_aaro1 = select :iv_mandt as mandt,
+                        a.rbukrs as aaro_company,
+                        a.gjahr as gjahr,
+                        a.poper as poper,
+                        a.source as aaro_source,
+                        a.aaro_acct_cat as aaro_Acct_Cat,
+                        a.racct as aaro_gl_account,
+                        a.prctr as aaro_profit_Center,
+                        a.rassc as aaro_trading_partner,
+                        a.aaro_counter_prctr as aaro_counter_prctr,
+                        a.rtcur as rwcur,
+                        a.rhcur as rhcur,
+                        round ( ( a.tsl/1000 ) ,3 ) as wsl,
+                        round ( ( a.hsl/1000 ),3 )  as hsl,
+                        '' as aaro_Status,
+                        a.setname as setname
+                        from :it_acdoca as a;
+
+    et_Zfin_aaro_r = select DISTINCT a.mandt,
+                                a.aaro_company,
+                                a.gjahr,
+                                a.poper,
+                                a.aaro_source,
+                                a.aaro_acct_Cat,
+                                a.aaro_gl_account,
+                                a.aaro_profit_Center,
+                                a.aaro_trading_partner,
+                                a.aaro_counter_prctr,
+                                a.rwcur,
+                                a.rhcur,
+                                a.wsl,
+                                a.hsl,
+                                'R' as aaro_status,
+                                a.setname
+                               from :et_Zfin_Aaro1 as a
+                               inner join :lt_Zfin_aaro_exist as b
+                               on a.mandt = b.mandt
+                               and a.aaro_Company = b.aaro_company
+                               and a.gjahr  = b.gjahr
+                               and a.poper  = b.poper
+                               and a.aaro_acct_cat        = b.aaro_acct_cat
+                               and a.aaro_gl_account      = b.aaro_gl_account
+                               and a.aaro_profit_center   = b.aaro_profit_center
+                               and a.aaro_trading_partner = b.aaro_trading_partner
+                               and a.aaro_counter_prctr   = b.aaro_counter_prctr;
+
+    et_zfin_Aaro_i = select  a.mandt,
+                                a.aaro_company,
+                                a.gjahr,
+                                a.poper,
+                                a.aaro_source,
+                                a.aaro_acct_Cat,
+                                a.aaro_gl_account,
+                                a.aaro_profit_Center,
+                                a.aaro_trading_partner,
+                                a.aaro_counter_prctr,
+                                a.rwcur,
+                                a.rhcur,
+                                a.wsl,
+                                a.hsl,
+                                'I' as aaro_status,
+                                a.setname
+                                 from :et_zfin_Aaro1 as a where not exists ( select b.* from :et_zfin_aaro_r as b
+                                                                             WHERE b.aaro_Company = a.aaro_company
+                                                                             and b.gjahr  = a.gjahr
+                                                                             and b.poper  = a.poper
+                                                                             and b.aaro_acct_cat        = a.aaro_acct_cat
+                                                                             and b.aaro_gl_account      = a.aaro_gl_account
+                                                                             and b.aaro_profit_center   = a.aaro_profit_center
+                                                                             and b.aaro_trading_partner = a.aaro_trading_partner
+                                                                             and b.aaro_counter_prctr   = a.aaro_counter_prctr);
+
+
+    et_zfin_Aaro = select * from :et_Zfin_aaro_r
+                   UNION all
+                   select * from :et_Zfin_aaro_i
+                   order by setname;
+
+  ENDMETHOD.
+
+
+  METHOD prepare_aaro_period_lines BY DATABASE PROCEDURE FOR HDB LANGUAGE SQLSCRIPT
+                            OPTIONS READ-ONLY USING zfin_cl_aaro_amdp=>fetch_update_aaro_table.
+
+*** Sum by AARO Counter Profit center
+    lt_sum_Aaro_counter_prctr = select DISTINCT rbukrs, gjahr,
+              poper ,
+              source,
+              aaro_acct_cat,
+              rassc ,
+              ktopl,
+              racct,
+              prctr ,
+              rtcur,
+              rhcur,
+              aaro_counter_prctr,
+              setname,
+              SUM ( tsl ) as tsl,
+              sum( hsl ) as hsl
+              from :it_aaro_lines_collect
+              where gv_sum_relevant <> 'X'
+              GROUP BY rbukrs,gjahr,poper,source,aaro_acct_cat,rassc,ktopl,racct,setname,prctr,rtcur,rhcur,
+                       aaro_counter_prctr,setname;
+
+*** For GV_SUM_GL Account
+    lt_Sum_aaro_cross_co = select DISTINCT rbukrs, gjahr,
+              poper ,
+              source,
+              aaro_acct_cat,
+              rassc ,
+              ktopl,
+              racct,
+              prctr ,
+              aaro_counter_prctr,
+              setname,
+              SUM ( OSL ) as OSL
+              from :it_aaro_lines_collect
+              where gv_sum_relevant = 'X'
+              GROUP BY rbukrs,gjahr,poper,source,aaro_acct_cat,rassc,ktopl,racct,setname,prctr,
+                       aaro_counter_prctr,setname;
+
+*** Only take those lines that have OSL as Zero
+     lt_cross_company_Det = select * from :lt_Sum_aaro_cross_co where osl <> 0.000;
+
+     lt_cross_Company_det_Aaro = select distinct  a.rbukrs, a.gjahr,
+              a.poper ,
+              a.source,
+              a.aaro_acct_cat,
+              a.rassc ,
+              a.ktopl,
+              a.racct,
+              a.prctr ,
+              b.rtcur,
+              b.rhcur,
+              a.aaro_counter_prctr,
+              a.setname,
+              sum( b.tsl ) as tsl,
+              sum( b.hsl ) as hsl
+              from :lt_cross_company_Det as a
+              left outer join :it_aaro_lines_collect as b
+              on a.rbukrs = b.rbukrs
+              and a.gjahr = b.gjahr
+              and a.poper = b.poper
+              and a.source = b.source
+              and a.aaro_acct_cat = b.aaro_acct_cat
+              and a.rassc = b.rassc
+              and a.ktopl = b.ktopl
+              and a.racct = b.racct
+              and a.prctr = b.prctr
+              and a.aaro_counter_prctr = b.aaro_counter_prctr
+              and a.setname = b.setname
+              gROUP BY a.rbukrs,a.gjahr,a.poper,a.source,a.aaro_acct_cat,a.rassc,a.ktopl,a.racct,
+                       a.setname,a.prctr,b.rtcur,b.rhcur,
+                       a.aaro_counter_prctr,a.setname;
+
+     IF :iv_source = 'C'
+     then
+     et_aaro_lines = select * from :lt_sum_Aaro_counter_prctr ;
+     else
+     et_aaro_lines = select a.* from :lt_sum_Aaro_counter_prctr as a
+                     where  a.hsl <> 0.000
+*                     and b.OSL <> 0.000
+                     union all
+                     select * from :lt_cross_Company_det_Aaro;
+     end if;
+
+
+     et_zfin_zero_amnt = select concat( racct,prctr ) as parameter,hsl from :lt_sum_Aaro_counter_prctr
+                         where hsl  = 0.000
+                         union all
+                         select concat(  racct,prctr ) as parameter,osl as hsl from :lt_Sum_aaro_cross_co
+                         where osl = 0.000 ;
+
+
+*** Prepare S4 Fields now
+     et_s4_gl = select a.rbukrs as aaro_company,
+                       a.gjahr,
+                       a.poper,
+                       :iv_Source as aaro_Source,
+                       a.aaro_acct_cat,
+                       a.rassc as aaro_trading_partner,
+                       a.setname,
+                       a.s4_gl_Acct,
+                       a.racct as aaro_Gl_Account,
+                       a.rfarea,
+                       a.s4_prctr as s4_profit_centre,
+                       a.prctr as aaro_profit_Center,
+                       a.prctri_relevant,
+                       a.aaro_counter_prctr,
+                       a.drcrk,
+                       a.debit_indicator,
+                       a.credit_indicator,
+                       a.rtcur,
+                       a.rhcur,
+                       a.tsl,
+                       a.hsl
+                       from :it_aaro_lines_collect as a
+                       ORDER BY setname;
+
+
+
+     call  "ZFIN_CL_AARO_AMDP=>FETCH_UPDATE_AARO_TABLE"(
+               iv_mandt       => :iv_mandt,
+               iv_rbukrs      => :iv_rbukrs ,
+               iv_gjahr       => :iv_gjahr ,
+               iv_poper       => :iv_poper,
+               iv_source      => :iv_Source,
+               it_acdoca      => :et_Aaro_lines,
+               et_zfin_aaro   => :et_zfin_aaro  ,
+               et_zfin_aaro_exist =>:et_zfin_aaro_exists,
+               et_zfin_aaro1  => :et_zfin_aaro1,
+               et_zfin_aaro_i => :et_zfin_aaro_i,
+               et_zfin_aaro_r => :et_zfin_aaro_r
+           );
+
+
+  ENDMETHOD.
+ENDCLASS.
+
+CLASS zfin_post_vol_var_amdp DEFINITION
+  PUBLIC
+  FINAL
+  CREATE PUBLIC .
+
+  PUBLIC SECTION.
+  interfaces IF_AMDP_MARKER_HDB.
+  types: begin of ty_result,
+            objnr type j_objnr,
+            gjahr type gjahr,
+            kstar type kstar,
+            WOG001 type wogxxx,
+            WOG002 type wogxxx,
+            WOG003 type wogxxx,
+            WOG004 type wogxxx,
+            WOG005 type wogxxx,
+            WOG006 type wogxxx,
+            WOG007 type wogxxx,
+            WOG008 type wogxxx,
+            WOG009 type wogxxx,
+            WOG010 type wogxxx,
+            WOG011 type wogxxx,
+            WOG012 type wogxxx,
+            kostl  type kostl,
+            twaer  type twaer,
+          end of ty_result.
+           types: begin of ty_result1,
+            objnr type j_objnr,
+            gjahr type gjahr,
+            kstar type kstar,
+            WOG001 type wogxxx,
+            WOG002 type wogxxx,
+            WOG003 type wogxxx,
+            WOG004 type wogxxx,
+            WOG005 type wogxxx,
+            WOG006 type wogxxx,
+            WOG007 type wogxxx,
+            WOG008 type wogxxx,
+            WOG009 type wogxxx,
+            WOG010 type wogxxx,
+            WOG011 type wogxxx,
+            WOG012 type wogxxx,
+            sub    type j_objnr,
+          end of ty_result1.
+  types: begin of ty_input,
+            mandt type mandt,
+            kokrs type kokrs ,
+            kostl type kostl,
+            datbi type datbi,
+            datab type datab,
+            bukrs type bukrs,
+            kosar type kosar,
+            prctr type prctr,
+            werks type werks_D,
+            objnr type j_objnr,
+            waers type waers,
+         end of ty_input.
+  types: tt_result type STANDARD TABLE OF ty_result,
+         tt_result1 type STANDARD TABLE OF ty_result1,
+         tt_input  type STANDARD TABLE OF ty_input.
+
+  Class-methods: get_cosp_values
+  IMPORTING value(iv_mandt) type mandt
+            value(iv_gjahr) type gjahr
+            value(it_csks) type tt_input
+  exporting value(et_cosp) type tt_Result
+            value(et_coss) type tt_result
+            value(et_Coss1) type tt_Result1.
+
+  PROTECTED SECTION.
+  PRIVATE SECTION.
+ENDCLASS.
+
+
+
+CLASS ZFIN_POST_VOL_VAR_AMDP IMPLEMENTATION.
+
+
+    method get_cosp_values by DATABASE PROCEDURE FOR HDB LANGUAGE SQLSCRIPT
+                           OPTIONS READ-ONLY using
+                           cosp_bak
+                           coss_bak.
+
+      lt_csks = select * from :it_csks;
+
+      et_cosp = select b.objnr, b.gjahr ,b.kstar,b.wog001, b.wog002,
+                       b.wog003,b.wog004,b.wog005,b.wog006,
+                       b.wog007,b.wog008,b.wog009,b.wog010,
+                       b.wog011,b.wog012,substr( b.objnr,7,10 ) as kostl,b.twaer
+                from  :lt_csks as a
+                inner join cosp_bak as b
+                on   a.kostl = substr( b.objnr,7,10 )
+                where b.gjahr = :iv_gjahr
+                and   b.mandt = :iv_mandt
+                and  a.mandt  = :iv_mandt
+                and  b.wrttp  = '01'
+                and  b.versn  = '000';
+
+       et_coss = select b.objnr, b.gjahr ,b.kstar,b.wog001, b.wog002,
+                       b.wog003,b.wog004,b.wog005,b.wog006,
+                       b.wog007,b.wog008,b.wog009,b.wog010,
+                       b.wog011,b.wog012,substr( b.objnr,7,10 ) as kostl,b.twaer
+                from   :lt_csks as a
+                inner  join coss_bak as b
+                on   a.kostl = substr( b.objnr,7,10 )
+                where b.gjahr = :iv_gjahr
+                and   b.mandt = :iv_mandt
+                and   a.mandt = :iv_mandt
+                and   b.wrttp = '01'
+                and   b.versn = '000'   ;
+
+     et_coss1 = select b.objnr, b.gjahr ,b.kstar,b.wog001, b.wog002,
+                       b.wog003,b.wog004,b.wog005,b.wog006,
+                       b.wog007,b.wog008,b.wog009,b.wog010,
+                       b.wog011,b.wog012,substr( b.objnr,7,10 ) as sub
+                from   coss_bak as b
+                where b.gjahr = :iv_gjahr
+                and   b.mandt = :iv_mandt
+                and   b.wrttp = '01'
+                and   b.versn = '000'   ;
+
+    endmethod.
+ENDCLASS.
+
