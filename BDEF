@@ -1,0 +1,1163 @@
+CLASS lhc_zl2c_i_tender_mass_change DEFINITION INHERITING FROM cl_abap_behavior_handler.
+  PRIVATE SECTION.
+
+    METHODS read FOR READ
+      IMPORTING keys FOR READ masschange RESULT result.
+
+    METHODS lock FOR LOCK
+      IMPORTING keys FOR LOCK masschange.
+
+    METHODS get_instance_authorizations FOR INSTANCE AUTHORIZATION
+      IMPORTING keys REQUEST requested_authorizations FOR masschange RESULT result.
+
+    METHODS change_material FOR MODIFY
+      IMPORTING keys FOR ACTION masschange~change_material RESULT result.
+
+    METHODS add_material FOR MODIFY
+      IMPORTING keys FOR ACTION masschange~add_material RESULT result.
+
+    METHODS change_pricing_date FOR MODIFY
+      IMPORTING keys FOR ACTION masschange~change_pricing_date RESULT result.
+
+    METHODS reject_material FOR MODIFY
+      IMPORTING keys FOR ACTION masschange~reject_material RESULT result.
+
+    METHODS remove_rejection FOR MODIFY
+      IMPORTING keys FOR ACTION masschange~remove_rejection RESULT result.
+
+    METHODS clear_message FOR MODIFY
+      IMPORTING keys FOR ACTION masschange~clear_message RESULT result.
+
+    METHODS setreadmode FOR MODIFY
+      IMPORTING keys FOR ACTION masschange~setreadmode RESULT result.
+
+    METHODS change_status FOR MODIFY
+      IMPORTING keys FOR ACTION masschange~change_status RESULT result.
+
+    METHODS change_validity_date_fr FOR MODIFY
+      IMPORTING keys FOR ACTION masschange~change_validity_date_fr RESULT result.
+
+    METHODS change_validity_date_to FOR MODIFY
+      IMPORTING keys FOR ACTION masschange~change_validity_date_to RESULT result.
+
+    METHODS get_instance_features FOR INSTANCE FEATURES
+      IMPORTING keys REQUEST requested_features FOR masschange RESULT result.
+
+    METHODS start_application_job
+      IMPORTING iv_job_text            TYPE cl_apj_rt_api=>ty_job_text
+                it_job_parameter_value TYPE cl_apj_rt_api=>tt_job_parameter_value
+                keys                   TYPE ANY TABLE
+                io_mass_change_util    TYPE REF TO zcl_l2c_tender_mass_change_uti
+      CHANGING  reported               TYPE any.
+
+
+ENDCLASS.
+
+CLASS lhc_zl2c_i_tender_mass_change IMPLEMENTATION.
+
+  METHOD read.
+  ENDMETHOD.
+
+  METHOD lock.
+  ENDMETHOD.
+
+  METHOD change_material.
+    DATA: lv_severity TYPE if_abap_behv_message=>t_severity.
+
+    DATA: ls_tender_params TYPE zl2c_tender_params.
+
+    DATA: lt_sales_doc_data TYPE vlc_sdoc_item_t,
+          lt_tender_msg     TYPE zl2c_t_tender_msg,
+          lv_job            TYPE flag,
+          lt_job_param      TYPE cl_apj_rt_api=>tt_job_parameter_value.
+
+    DATA: lo_mass_change_util TYPE REF TO zcl_l2c_tender_mass_change_uti.
+
+    FIELD-SYMBOLS: <ls_sales_doc_data> TYPE vlc_sdoc_item,
+                   <ls_job_param>      LIKE LINE OF lt_job_param.
+
+    CREATE OBJECT lo_mass_change_util.
+
+    "Job or standard processing?
+    READ TABLE keys ASSIGNING FIELD-SYMBOL(<ls_keys>) INDEX 1.
+    IF  sy-subrc IS INITIAL.
+      lv_job = <ls_keys>-%param-job.
+    ENDIF.
+
+    IF lv_job IS INITIAL.
+      "standard synchronous processing
+      "Map Parameters
+      LOOP AT keys ASSIGNING <ls_keys>.
+        IF sy-tabix EQ 1.
+          ls_tender_params-function  = zcl_l2c_tender_mass_change_uti=>c_function-change_matnr.
+***          ls_tender_params-new_matnr = <ls_keys>-%param-new_matnr.
+          ls_tender_params-new_bismt = <ls_keys>-%param-new_bismt.
+          ls_tender_params-new_abgru = <ls_keys>-%param-new_abgru.
+          ls_tender_params-old_bismt = <ls_keys>-%param-old_bismt.
+          ls_tender_params-abgru     = <ls_keys>-%param-abgru.
+          ls_tender_params-test      = <ls_keys>-%param-test.
+        ENDIF.
+
+        APPEND INITIAL LINE TO lt_sales_doc_data ASSIGNING <ls_sales_doc_data>.
+        <ls_sales_doc_data>-vbeln = <ls_keys>-salescontract.
+        <ls_sales_doc_data>-posnr = <ls_keys>-salescontractitem.
+      ENDLOOP.
+
+      TRY.
+
+          "Change Tender Documents
+          lo_mass_change_util->change_order(
+            EXPORTING
+              is_tender_params  = ls_tender_params
+              it_sales_doc_data = lt_sales_doc_data
+            IMPORTING
+              et_tender_msg     = lt_tender_msg ).
+
+          "Update Messages
+          lo_mass_change_util->update_messages( it_tender_msg = lt_tender_msg ).
+
+        CATCH zcx_l2c_message INTO DATA(lo_message).
+
+          IF lo_message->v_msgty CA 'EA'.
+            lv_severity = if_abap_behv_message=>severity-error.
+          ELSE.
+            lv_severity = if_abap_behv_message=>severity-success.
+          ENDIF.
+
+          APPEND VALUE #( %msg = new_message( id       = lo_message->v_msgid
+                                              number   = lo_message->v_msgno
+                                              v1       = lo_message->v_msgv1
+                                              v2       = lo_message->v_msgv2
+                                              v3       = lo_message->v_msgv3
+                                              v4       = lo_message->v_msgv4
+                                              severity = lv_severity ) ) TO reported-masschange.
+      ENDTRY.
+
+    ELSE.
+      "Process via application job
+      "Map Parameters
+      LOOP AT keys ASSIGNING <ls_keys>.
+        IF sy-tabix EQ 1.
+          lt_job_param = VALUE cl_apj_rt_api=>tt_job_parameter_value(
+
+          ( name = zcl_l2c_tender_application_job=>c_sel_function t_value = VALUE #( ( sign = 'I' option = 'EQ' low = zcl_l2c_tender_mass_change_uti=>c_function-change_matnr ) ) )
+***          ( name = zcl_l2c_tender_application_job=>c_sel_newmatnr t_value = VALUE #( ( sign = 'I' option = 'EQ' low = <ls_keys>-%param-new_matnr ) ) )
+          ( name = zcl_l2c_tender_application_job=>c_sel_newbismt t_value = VALUE #( ( sign = 'I' option = 'EQ' low = <ls_keys>-%param-new_bismt ) ) )
+          ( name = zcl_l2c_tender_application_job=>c_sel_newabgru t_value = VALUE #( ( sign = 'I' option = 'EQ' low = <ls_keys>-%param-new_abgru ) ) )
+          ( name = zcl_l2c_tender_application_job=>c_sel_oldbismt t_value = VALUE #( ( sign = 'I' option = 'EQ' low = <ls_keys>-%param-old_bismt ) ) )
+          ( name = zcl_l2c_tender_application_job=>c_sel_abgru    t_value = VALUE #( ( sign = 'I' option = 'EQ' low = <ls_keys>-%param-abgru ) ) )
+          ( name = zcl_l2c_tender_application_job=>c_sel_test     t_value = VALUE #( ( sign = 'I' option = 'EQ' low = <ls_keys>-%param-test ) ) ) ).
+          APPEND INITIAL LINE TO lt_job_param ASSIGNING <ls_job_param>.
+          <ls_job_param>-name = zcl_l2c_tender_application_job=>c_sel_orders.
+          <ls_job_param>-t_value = VALUE #( ( sign = 'I' option = 'EQ' low = |{ <ls_keys>-salescontract }{ <ls_keys>-salescontractitem }| )  ).
+
+        ELSE.
+          READ TABLE lt_job_param ASSIGNING <ls_job_param> WITH KEY name = zcl_l2c_tender_application_job=>c_sel_orders.
+          IF sy-subrc IS INITIAL.
+            <ls_job_param>-t_value = VALUE #( BASE <ls_job_param>-t_value ( sign = 'I' option = 'EQ' low = |{ <ls_keys>-salescontract }{ <ls_keys>-salescontractitem }| )  ).
+          ENDIF.
+        ENDIF.
+
+
+      ENDLOOP.
+
+      start_application_job(
+        EXPORTING
+          iv_job_text            = 'Mass Change of Tender Documents: Change Material'
+          it_job_parameter_value = lt_job_param
+          keys                   = keys
+          io_mass_change_util    = lo_mass_change_util
+        CHANGING
+          reported               = reported
+      ).
+
+
+    ENDIF.
+
+
+  ENDMETHOD.
+
+
+  METHOD add_material.
+    DATA: lv_severity TYPE if_abap_behv_message=>t_severity.
+
+    DATA: ls_tender_params TYPE zl2c_tender_params.
+
+    DATA: lt_sales_doc_data TYPE vlc_sdoc_item_t,
+          lt_tender_msg     TYPE zl2c_t_tender_msg,
+          lv_job            TYPE flag,
+          lt_job_param      TYPE cl_apj_rt_api=>tt_job_parameter_value.
+
+    DATA: lo_mass_change_util TYPE REF TO zcl_l2c_tender_mass_change_uti.
+
+    FIELD-SYMBOLS: <ls_sales_doc_data> TYPE vlc_sdoc_item,
+                   <ls_job_param>      LIKE LINE OF lt_job_param.
+
+    CREATE OBJECT lo_mass_change_util.
+
+    "Job or standard processing?
+    READ TABLE keys ASSIGNING FIELD-SYMBOL(<ls_keys>) INDEX 1.
+    IF  sy-subrc IS INITIAL.
+      lv_job = <ls_keys>-%param-job.
+    ENDIF.
+
+    IF lv_job IS INITIAL.
+      "standard synchronous processing
+      "Map Parameters
+      LOOP AT keys ASSIGNING <ls_keys>.
+        IF sy-tabix EQ 1.
+          ls_tender_params-function  = zcl_l2c_tender_mass_change_uti=>c_function-add_matnr.
+          ls_tender_params-new_matnr = <ls_keys>-%param-matnr.
+          ls_tender_params-kwmeng    = <ls_keys>-%param-kwmeng.
+          ls_tender_params-vrkme     = <ls_keys>-%param-vrkme.
+          ls_tender_params-kbetr     = <ls_keys>-%param-kbetr.
+          ls_tender_params-test      = <ls_keys>-%param-test.
+        ENDIF.
+
+        APPEND INITIAL LINE TO lt_sales_doc_data ASSIGNING <ls_sales_doc_data>.
+        <ls_sales_doc_data>-vbeln = <ls_keys>-salescontract.
+        <ls_sales_doc_data>-posnr = <ls_keys>-salescontractitem.
+      ENDLOOP.
+
+      TRY.
+
+          "Change Tender Documents
+          lo_mass_change_util->change_order(
+            EXPORTING
+              is_tender_params  = ls_tender_params
+              it_sales_doc_data = lt_sales_doc_data
+            IMPORTING
+              et_tender_msg     = lt_tender_msg ).
+
+          "Update Messages
+          lo_mass_change_util->update_messages( it_tender_msg = lt_tender_msg ).
+
+        CATCH zcx_l2c_message INTO DATA(lo_message).
+
+          IF lo_message->v_msgty CA 'EA'.
+            lv_severity = if_abap_behv_message=>severity-error.
+          ELSE.
+            lv_severity = if_abap_behv_message=>severity-success.
+          ENDIF.
+
+          APPEND VALUE #( %msg = new_message( id       = lo_message->v_msgid
+                                              number   = lo_message->v_msgno
+                                              v1       = lo_message->v_msgv1
+                                              v2       = lo_message->v_msgv2
+                                              v3       = lo_message->v_msgv3
+                                              v4       = lo_message->v_msgv4
+                                              severity = lv_severity ) ) TO reported-masschange.
+      ENDTRY.
+
+    ELSE.
+      "Process via application job
+      "Map Parameters
+      LOOP AT keys ASSIGNING <ls_keys>.
+        IF sy-tabix EQ 1.
+          lt_job_param = VALUE cl_apj_rt_api=>tt_job_parameter_value(
+          ( name = zcl_l2c_tender_application_job=>c_sel_function t_value = VALUE #( ( sign = 'I' option = 'EQ' low = zcl_l2c_tender_mass_change_uti=>c_function-add_matnr ) ) )
+          ( name = zcl_l2c_tender_application_job=>c_sel_newmatnr t_value = VALUE #( ( sign = 'I' option = 'EQ' low = <ls_keys>-%param-matnr ) ) )
+          ( name = zcl_l2c_tender_application_job=>c_sel_kwmeng   t_value = VALUE #( ( sign = 'I' option = 'EQ' low = <ls_keys>-%param-kwmeng ) ) )
+          ( name = zcl_l2c_tender_application_job=>c_sel_vrkme    t_value = VALUE #( ( sign = 'I' option = 'EQ' low = <ls_keys>-%param-vrkme ) ) )
+          ( name = zcl_l2c_tender_application_job=>c_sel_kbetr t_value = VALUE #( ( sign = 'I' option = 'EQ' low = <ls_keys>-%param-kbetr ) ) )
+          ( name = zcl_l2c_tender_application_job=>c_sel_test     t_value = VALUE #( ( sign = 'I' option = 'EQ' low = <ls_keys>-%param-test ) ) ) ).
+          APPEND INITIAL LINE TO lt_job_param ASSIGNING <ls_job_param>.
+          <ls_job_param>-name = zcl_l2c_tender_application_job=>c_sel_orders.
+          <ls_job_param>-t_value = VALUE #( ( sign = 'I' option = 'EQ' low = |{ <ls_keys>-salescontract }{ <ls_keys>-salescontractitem }| )  ).
+
+        ELSE.
+          READ TABLE lt_job_param ASSIGNING <ls_job_param> WITH KEY name = zcl_l2c_tender_application_job=>c_sel_orders.
+          IF sy-subrc IS INITIAL.
+            <ls_job_param>-t_value = VALUE #( BASE <ls_job_param>-t_value ( sign = 'I' option = 'EQ' low = |{ <ls_keys>-salescontract }{ <ls_keys>-salescontractitem }| )  ).
+          ENDIF.
+        ENDIF.
+
+
+      ENDLOOP.
+
+      start_application_job(
+        EXPORTING
+          iv_job_text            = 'Mass Change of Tender Documents: Add New Material'
+          it_job_parameter_value = lt_job_param
+          keys                   = keys
+          io_mass_change_util    = lo_mass_change_util
+        CHANGING
+          reported               = reported
+      ).
+
+
+    ENDIF.
+
+  ENDMETHOD.
+**********************************************************************
+  METHOD change_pricing_date.
+
+    DATA: lv_severity TYPE if_abap_behv_message=>t_severity.
+
+    DATA: ls_tender_params TYPE zl2c_tender_params.
+
+    DATA: lt_sales_doc_data TYPE vlc_sdoc_item_t,
+          lt_tender_msg     TYPE zl2c_t_tender_msg,
+          lv_job            TYPE flag,
+          lt_job_param      TYPE cl_apj_rt_api=>tt_job_parameter_value.
+
+    DATA: lo_mass_change_util TYPE REF TO zcl_l2c_tender_mass_change_uti.
+
+    FIELD-SYMBOLS: <ls_sales_doc_data> TYPE vlc_sdoc_item,
+                   <ls_job_param>      LIKE LINE OF lt_job_param.
+
+    CREATE OBJECT lo_mass_change_util.
+
+    "Job or standard processing?
+    READ TABLE keys ASSIGNING FIELD-SYMBOL(<ls_keys>) INDEX 1.
+    IF  sy-subrc IS INITIAL.
+      lv_job = <ls_keys>-%param-job.
+    ENDIF.
+
+    IF lv_job IS INITIAL.
+      "standard synchronous processing
+      "Map Parameters
+      LOOP AT keys ASSIGNING <ls_keys>.
+        IF sy-tabix EQ 1.
+          ls_tender_params-function    = zcl_l2c_tender_mass_change_uti=>c_function-change_pricing_date.
+          ls_tender_params-prsdt       = <ls_keys>-%param-prsdt.
+          ls_tender_params-new_pricing = <ls_keys>-%param-new_pricing.
+          ls_tender_params-test        = <ls_keys>-%param-test.
+        ENDIF.
+
+        APPEND INITIAL LINE TO lt_sales_doc_data ASSIGNING <ls_sales_doc_data>.
+        <ls_sales_doc_data>-vbeln = <ls_keys>-salescontract.
+        <ls_sales_doc_data>-posnr = <ls_keys>-salescontractitem.
+      ENDLOOP.
+
+      TRY.
+
+          "Change Tender Documents
+          lo_mass_change_util->change_order(
+            EXPORTING
+              is_tender_params  = ls_tender_params
+              it_sales_doc_data = lt_sales_doc_data
+            IMPORTING
+              et_tender_msg     = lt_tender_msg ).
+
+          "Update Messages
+          lo_mass_change_util->update_messages( it_tender_msg = lt_tender_msg ).
+
+        CATCH zcx_l2c_message INTO DATA(lo_message).
+
+          IF lo_message->v_msgty CA 'EA'.
+            lv_severity = if_abap_behv_message=>severity-error.
+          ELSE.
+            lv_severity = if_abap_behv_message=>severity-success.
+          ENDIF.
+
+          APPEND VALUE #( %msg = new_message( id       = lo_message->v_msgid
+                                              number   = lo_message->v_msgno
+                                              v1       = lo_message->v_msgv1
+                                              v2       = lo_message->v_msgv2
+                                              v3       = lo_message->v_msgv3
+                                              v4       = lo_message->v_msgv4
+                                              severity = lv_severity ) ) TO reported-masschange.
+      ENDTRY.
+
+    ELSE.
+      "Process via application job
+      "Map Parameters
+      LOOP AT keys ASSIGNING <ls_keys>.
+        IF sy-tabix EQ 1.
+          lt_job_param = VALUE cl_apj_rt_api=>tt_job_parameter_value(
+          ( name = zcl_l2c_tender_application_job=>c_sel_function t_value = VALUE #( ( sign = 'I' option = 'EQ' low = zcl_l2c_tender_mass_change_uti=>c_function-change_pricing_date ) ) )
+          ( name = zcl_l2c_tender_application_job=>c_sel_prsdt    t_value = VALUE #( ( sign = 'I' option = 'EQ' low = <ls_keys>-%param-prsdt ) ) )
+          ( name = zcl_l2c_tender_application_job=>c_sel_new_pric   t_value = VALUE #( ( sign = 'I' option = 'EQ' low = <ls_keys>-%param-new_pricing ) ) )
+          ( name = zcl_l2c_tender_application_job=>c_sel_test     t_value = VALUE #( ( sign = 'I' option = 'EQ' low = <ls_keys>-%param-test ) ) ) ).
+          APPEND INITIAL LINE TO lt_job_param ASSIGNING <ls_job_param>.
+          <ls_job_param>-name = zcl_l2c_tender_application_job=>c_sel_orders.
+          <ls_job_param>-t_value = VALUE #( ( sign = 'I' option = 'EQ' low = |{ <ls_keys>-salescontract }{ <ls_keys>-salescontractitem }| )  ).
+
+        ELSE.
+          READ TABLE lt_job_param ASSIGNING <ls_job_param> WITH KEY name = zcl_l2c_tender_application_job=>c_sel_orders.
+          IF sy-subrc IS INITIAL.
+            <ls_job_param>-t_value = VALUE #( BASE <ls_job_param>-t_value ( sign = 'I' option = 'EQ' low = |{ <ls_keys>-salescontract }{ <ls_keys>-salescontractitem }| )  ).
+          ENDIF.
+        ENDIF.
+      ENDLOOP.
+
+      start_application_job(
+        EXPORTING
+          iv_job_text            = 'Mass Change of Tender Documents: Change Pricing date'
+          it_job_parameter_value = lt_job_param
+          keys                   = keys
+          io_mass_change_util    = lo_mass_change_util
+        CHANGING
+          reported               = reported
+      ).
+
+
+    ENDIF.
+
+
+
+  ENDMETHOD.
+**********************************************************************
+  METHOD reject_material.
+    DATA: lv_severity TYPE if_abap_behv_message=>t_severity.
+
+    DATA: ls_tender_params TYPE zl2c_tender_params.
+
+    DATA: lt_sales_doc_data TYPE vlc_sdoc_item_t,
+          lt_tender_msg     TYPE zl2c_t_tender_msg,
+          lv_job            TYPE flag,
+          lt_job_param      TYPE cl_apj_rt_api=>tt_job_parameter_value.
+
+    DATA: lo_mass_change_util TYPE REF TO zcl_l2c_tender_mass_change_uti.
+
+    FIELD-SYMBOLS: <ls_sales_doc_data> TYPE vlc_sdoc_item,
+                   <ls_job_param>      LIKE LINE OF lt_job_param.
+
+    CREATE OBJECT lo_mass_change_util.
+
+    "Job or standard processing?
+    READ TABLE keys ASSIGNING FIELD-SYMBOL(<ls_keys>) INDEX 1.
+    IF  sy-subrc IS INITIAL.
+      lv_job = <ls_keys>-%param-job.
+    ENDIF.
+
+    IF lv_job IS INITIAL.
+      "standard synchronous processing
+      "Map Parameters
+      LOOP AT keys ASSIGNING <ls_keys>.
+        IF sy-tabix EQ 1.
+          ls_tender_params-function  = zcl_l2c_tender_mass_change_uti=>c_function-reject_matnr.
+*          ls_tender_params-old_bismt = <ls_keys>-%param-old_bismt.
+          ls_tender_params-abgru     = <ls_keys>-%param-abgru.
+          ls_tender_params-test      = <ls_keys>-%param-test.
+        ENDIF.
+
+        APPEND INITIAL LINE TO lt_sales_doc_data ASSIGNING <ls_sales_doc_data>.
+        <ls_sales_doc_data>-vbeln = <ls_keys>-salescontract.
+        <ls_sales_doc_data>-posnr = <ls_keys>-salescontractitem.
+      ENDLOOP.
+
+      TRY.
+
+          "Change Tender Documents
+          lo_mass_change_util->change_order(
+            EXPORTING
+              is_tender_params  = ls_tender_params
+              it_sales_doc_data = lt_sales_doc_data
+            IMPORTING
+              et_tender_msg     = lt_tender_msg ).
+
+          "Update Messages
+          lo_mass_change_util->update_messages( it_tender_msg = lt_tender_msg ).
+
+        CATCH zcx_l2c_message INTO DATA(lo_message).
+
+          IF lo_message->v_msgty CA 'EA'.
+            lv_severity = if_abap_behv_message=>severity-error.
+          ELSE.
+            lv_severity = if_abap_behv_message=>severity-success.
+          ENDIF.
+
+          APPEND VALUE #( %msg = new_message( id       = lo_message->v_msgid
+                                              number   = lo_message->v_msgno
+                                              v1       = lo_message->v_msgv1
+                                              v2       = lo_message->v_msgv2
+                                              v3       = lo_message->v_msgv3
+                                              v4       = lo_message->v_msgv4
+                                              severity = lv_severity ) ) TO reported-masschange.
+      ENDTRY.
+
+    ELSE.
+      "Process via application job
+      "Map Parameters
+      LOOP AT keys ASSIGNING <ls_keys>.
+        IF sy-tabix EQ 1.
+          lt_job_param = VALUE cl_apj_rt_api=>tt_job_parameter_value(
+          ( name = zcl_l2c_tender_application_job=>c_sel_function t_value = VALUE #( ( sign = 'I' option = 'EQ' low = zcl_l2c_tender_mass_change_uti=>c_function-reject_matnr ) ) )
+*          ( name = zcl_l2c_tender_application_job=>c_sel_oldbismt t_value = VALUE #( ( sign = 'I' option = 'EQ' low = <ls_keys>-%param-old_bismt ) ) )
+          ( name = zcl_l2c_tender_application_job=>c_sel_abgru    t_value = VALUE #( ( sign = 'I' option = 'EQ' low = <ls_keys>-%param-abgru ) ) )
+          ( name = zcl_l2c_tender_application_job=>c_sel_test     t_value = VALUE #( ( sign = 'I' option = 'EQ' low = <ls_keys>-%param-test ) ) ) ).
+          APPEND INITIAL LINE TO lt_job_param ASSIGNING <ls_job_param>.
+          <ls_job_param>-name = zcl_l2c_tender_application_job=>c_sel_orders.
+          <ls_job_param>-t_value = VALUE #( ( sign = 'I' option = 'EQ' low = |{ <ls_keys>-salescontract }{ <ls_keys>-salescontractitem }| )  ).
+
+        ELSE.
+          READ TABLE lt_job_param ASSIGNING <ls_job_param> WITH KEY name = zcl_l2c_tender_application_job=>c_sel_orders.
+          IF sy-subrc IS INITIAL.
+            <ls_job_param>-t_value = VALUE #( BASE <ls_job_param>-t_value ( sign = 'I' option = 'EQ' low = |{ <ls_keys>-salescontract }{ <ls_keys>-salescontractitem }| )  ).
+          ENDIF.
+        ENDIF.
+      ENDLOOP.
+
+      start_application_job(
+        EXPORTING
+          iv_job_text            = 'Mass Change of Tender Documents: Reject Material'
+          it_job_parameter_value = lt_job_param
+          keys                   = keys
+          io_mass_change_util    = lo_mass_change_util
+        CHANGING
+          reported               = reported
+      ).
+
+    ENDIF.
+
+
+
+
+  ENDMETHOD.
+**********************************************************************
+  METHOD remove_rejection.
+    DATA: lv_severity TYPE if_abap_behv_message=>t_severity.
+
+    DATA: ls_tender_params TYPE zl2c_tender_params.
+
+    DATA: lt_sales_doc_data TYPE vlc_sdoc_item_t,
+          lt_tender_msg     TYPE zl2c_t_tender_msg,
+          lv_job            TYPE flag,
+          lt_job_param      TYPE cl_apj_rt_api=>tt_job_parameter_value.
+
+    DATA: lo_mass_change_util TYPE REF TO zcl_l2c_tender_mass_change_uti.
+
+    FIELD-SYMBOLS: <ls_sales_doc_data> TYPE vlc_sdoc_item,
+                   <ls_job_param>      LIKE LINE OF lt_job_param.
+
+    CREATE OBJECT lo_mass_change_util.
+
+    "Job or standard processing?
+    READ TABLE keys ASSIGNING FIELD-SYMBOL(<ls_keys>) INDEX 1.
+    IF  sy-subrc IS INITIAL.
+      lv_job = <ls_keys>-%param-job.
+    ENDIF.
+
+    IF lv_job IS INITIAL.
+      "standard synchronous processing
+      "Map Parameters
+      LOOP AT keys ASSIGNING <ls_keys>.
+        IF sy-tabix EQ 1.
+          ls_tender_params-function  = zcl_l2c_tender_mass_change_uti=>c_function-remove_rejection.
+*          ls_tender_params-old_bismt = <ls_keys>-%param-old_bismt.
+*          ls_tender_params-abgru     = <ls_keys>-%param-abgru.
+          ls_tender_params-test      = <ls_keys>-%param-test.
+        ENDIF.
+
+        APPEND INITIAL LINE TO lt_sales_doc_data ASSIGNING <ls_sales_doc_data>.
+        <ls_sales_doc_data>-vbeln = <ls_keys>-salescontract.
+        <ls_sales_doc_data>-posnr = <ls_keys>-salescontractitem.
+      ENDLOOP.
+
+      TRY.
+
+          "Change Tender Documents
+          lo_mass_change_util->change_order(
+            EXPORTING
+              is_tender_params  = ls_tender_params
+              it_sales_doc_data = lt_sales_doc_data
+            IMPORTING
+              et_tender_msg     = lt_tender_msg ).
+
+          "Update Messages
+          lo_mass_change_util->update_messages( it_tender_msg = lt_tender_msg ).
+
+        CATCH zcx_l2c_message INTO DATA(lo_message).
+
+          IF lo_message->v_msgty CA 'EA'.
+            lv_severity = if_abap_behv_message=>severity-error.
+          ELSE.
+            lv_severity = if_abap_behv_message=>severity-success.
+          ENDIF.
+
+          APPEND VALUE #( %msg = new_message( id       = lo_message->v_msgid
+                                              number   = lo_message->v_msgno
+                                              v1       = lo_message->v_msgv1
+                                              v2       = lo_message->v_msgv2
+                                              v3       = lo_message->v_msgv3
+                                              v4       = lo_message->v_msgv4
+                                              severity = lv_severity ) ) TO reported-masschange.
+      ENDTRY.
+
+    ELSE.
+      "Process via application job
+      "Map Parameters
+      LOOP AT keys ASSIGNING <ls_keys>.
+        IF sy-tabix EQ 1.
+          lt_job_param = VALUE cl_apj_rt_api=>tt_job_parameter_value(
+
+          ( name = zcl_l2c_tender_application_job=>c_sel_function t_value = VALUE #( ( sign = 'I' option = 'EQ' low = zcl_l2c_tender_mass_change_uti=>c_function-remove_rejection ) ) )
+          ( name = zcl_l2c_tender_application_job=>c_sel_test     t_value = VALUE #( ( sign = 'I' option = 'EQ' low = <ls_keys>-%param-test ) ) ) ).
+          APPEND INITIAL LINE TO lt_job_param ASSIGNING <ls_job_param>.
+          <ls_job_param>-name = zcl_l2c_tender_application_job=>c_sel_orders.
+          <ls_job_param>-t_value = VALUE #( ( sign = 'I' option = 'EQ' low = |{ <ls_keys>-salescontract }{ <ls_keys>-salescontractitem }| )  ).
+
+        ELSE.
+          READ TABLE lt_job_param ASSIGNING <ls_job_param> WITH KEY name = zcl_l2c_tender_application_job=>c_sel_orders.
+          IF sy-subrc IS INITIAL.
+            <ls_job_param>-t_value = VALUE #( BASE <ls_job_param>-t_value ( sign = 'I' option = 'EQ' low = |{ <ls_keys>-salescontract }{ <ls_keys>-salescontractitem }| )  ).
+          ENDIF.
+        ENDIF.
+      ENDLOOP.
+
+      start_application_job(
+        EXPORTING
+          iv_job_text            = 'Mass Change of Tender Documents: Remove Rejection'
+          it_job_parameter_value = lt_job_param
+          keys                   = keys
+          io_mass_change_util    = lo_mass_change_util
+        CHANGING
+          reported               = reported
+      ).
+
+    ENDIF.
+
+
+
+  ENDMETHOD.
+**********************************************************************
+  METHOD get_instance_authorizations.
+  ENDMETHOD.
+
+  METHOD clear_message.
+    DATA: lv_severity TYPE if_abap_behv_message=>t_severity.
+
+    DATA: lo_mass_change_util TYPE REF TO zcl_l2c_tender_mass_change_uti.
+
+    LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_keys>).
+
+      TRY.
+
+          CREATE OBJECT lo_mass_change_util.
+          lo_mass_change_util->clear_messages( ).
+        CATCH zcx_l2c_message INTO DATA(lo_message).
+          IF lo_message->v_msgty CA 'EA'.
+            lv_severity = if_abap_behv_message=>severity-error.
+          ELSE.
+            lv_severity = if_abap_behv_message=>severity-success.
+          ENDIF.
+
+
+          APPEND VALUE #( %cid = <ls_keys>-%cid
+                          %msg = new_message( id       = lo_message->v_msgid
+                                              number   = lo_message->v_msgno
+                                              v1       = lo_message->v_msgv1
+                                              v2       = lo_message->v_msgv2
+                                              v3       = lo_message->v_msgv3
+                                              v4       = lo_message->v_msgv4
+                                              severity = lv_severity ) ) TO reported-masschange.
+      ENDTRY.
+    ENDLOOP.
+
+  ENDMETHOD.
+
+  METHOD start_application_job.
+*&---------------------------------------------------------------------*
+*& DD ID        :                                                      *
+*& FS ID        :                                                      *
+*& User Stories :                                                      *
+*& Work Item    :2000003281                                            *
+*&---------------------------------------------------------------------*
+*& Tender change                                                       *
+*&---------------------------------------------------------------------*
+*& Transport: DA2K921760                                               *
+*&---------------------------------------------------------------------*
+*& Change Log:                                                         *
+*&---------------------------------------------------------------------*
+*& Author      ¦ Date           ¦ Comment                              *
+*&---------------------------------------------------------------------*
+*&  HUHJAVI      05-DEC-2023      Initial                              *
+*&---------------------------------------------------------------------*
+*   DATA: ls_tender_params TYPE zl2c_tender_params.
+
+    DATA: lv_severity TYPE if_abap_behv_message=>t_severity.
+    DATA: lt_sales_doc_data TYPE vlc_sdoc_item_t,
+          lt_tender_msg     TYPE zl2c_t_tender_msg,
+          lv_job            TYPE flag,
+          lt_job_param      TYPE cl_apj_rt_api=>tt_job_parameter_value.
+
+    DATA: lo_mass_change_util TYPE REF TO zcl_l2c_tender_mass_change_uti.
+
+    FIELD-SYMBOLS: <ls_sales_doc_data> TYPE vlc_sdoc_item,
+                   <ls_job_param>      LIKE LINE OF lt_job_param,
+                   <lt_mass>           TYPE STANDARD TABLE.
+
+
+    TRY.
+        DATA(ls_start) = VALUE cl_apj_rt_api=>ty_start_info( start_immediately = abap_true ).
+
+        cl_apj_rt_api=>schedule_job( EXPORTING iv_job_template_name   = 'ZL2C_TENDER_JOB_TEMP'
+                                               iv_job_text            = iv_job_text
+                                               is_start_info          = ls_start
+                                               it_job_parameter_value = it_job_parameter_value
+                                     IMPORTING ev_jobname             = DATA(lv_jobname)
+                                               ev_jobcount            = DATA(lv_jobcount) ).
+
+        "Update Messages
+        LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_keys>).
+          ASSIGN COMPONENT 'salescontract' OF STRUCTURE <ls_keys> TO FIELD-SYMBOL(<lv_vbeln>).
+          ASSIGN COMPONENT 'salescontractitem' OF STRUCTURE <ls_keys> TO FIELD-SYMBOL(<lv_posnr>).
+          IF <lv_vbeln> IS ASSIGNED AND <lv_posnr> IS ASSIGNED.
+            APPEND INITIAL LINE TO lt_tender_msg ASSIGNING FIELD-SYMBOL(<ls_tender_msg>).
+            <ls_tender_msg>-msgty = 'I'.
+            <ls_tender_msg>-message = |Job scheduled with Jobname { lv_jobname } and Jobcount { lv_jobcount } |.
+            <ls_tender_msg>-vbeln = <lv_vbeln>.
+            <ls_tender_msg>-posnr = <lv_posnr>.
+          ENDIF.
+        ENDLOOP.
+
+        TRY.
+            io_mass_change_util->update_messages( it_tender_msg = lt_tender_msg ).
+
+          CATCH zcx_l2c_message INTO DATA(lo_message).
+
+            "dynamic crap...
+            ASSIGN COMPONENT 'masschange' OF STRUCTURE reported TO <lt_mass>.
+            IF <lt_mass> IS ASSIGNED.
+              APPEND INITIAL LINE TO <lt_mass> ASSIGNING FIELD-SYMBOL(<ls_mass>).
+              IF <ls_mass> IS ASSIGNED.
+                ASSIGN COMPONENT '%MSG' OF STRUCTURE <ls_mass> TO FIELD-SYMBOL(<ls_msg>).
+                IF <ls_msg> IS ASSIGNED.
+
+                  IF lo_message->v_msgty CA 'EA'.
+                    lv_severity = if_abap_behv_message=>severity-error.
+                  ELSE.
+                    lv_severity = if_abap_behv_message=>severity-success.
+                  ENDIF.
+
+                  <ls_msg> = new_message( id       = lo_message->v_msgid
+                                          number   = lo_message->v_msgno
+                                          v1       = lo_message->v_msgv1
+                                          v2       = lo_message->v_msgv2
+                                          v3       = lo_message->v_msgv3
+                                          v4       = lo_message->v_msgv4
+                                          severity = lv_severity ).
+                ENDIF.
+              ENDIF.
+            ENDIF.
+
+        ENDTRY.
+
+      CATCH cx_apj_rt INTO DATA(lo_error).
+        DATA(ls_bapiret) = lo_error->get_bapiret2( ).
+
+        IF ls_bapiret-type CA 'EA'.
+          lv_severity = if_abap_behv_message=>severity-error.
+        ELSE.
+          lv_severity = if_abap_behv_message=>severity-success.
+        ENDIF.
+        ASSIGN COMPONENT 'masschange' OF STRUCTURE reported TO <lt_mass>.
+        IF <lt_mass> IS ASSIGNED.
+          APPEND INITIAL LINE TO <lt_mass> ASSIGNING <ls_mass>.
+          IF <ls_mass> IS ASSIGNED.
+            ASSIGN COMPONENT '%MSG' OF STRUCTURE <ls_mass> TO <ls_msg>.
+            IF <ls_msg> IS ASSIGNED.
+              <ls_msg> = new_message_with_text( severity = lv_severity
+                                                text     = ls_bapiret-message ).
+            ENDIF.
+          ENDIF.
+        ENDIF.
+
+    ENDTRY.
+  ENDMETHOD.
+
+  METHOD setreadmode.
+    READ TABLE keys ASSIGNING FIELD-SYMBOL(<ls_key>) INDEX 1.
+    IF sy-subrc IS INITIAL.
+      DATA(lo_tenderr) = zcl_l2c_tender_mass_change_uti=>get_instance( ).
+      lo_tenderr->set_selmode( iv_selmode = <ls_key>-%param-readmode ).
+      IF sy-subrc IS INITIAL.
+
+        APPEND VALUE #(     %msg           = new_message( id       = 'ZL2C_TENDER'
+                                                          number   = 007
+                                                          v1       = <ls_key>-%param-readmode
+                                                          severity = if_abap_behv_message=>severity-success ) ) TO reported-masschange.
+      ENDIF.
+
+
+
+    ENDIF.
+  ENDMETHOD.
+**********************************************************************
+
+  METHOD change_status.
+*&---------------------------------------------------------------------*
+    DATA: lv_severity TYPE if_abap_behv_message=>t_severity.
+
+    DATA: ls_tender_params TYPE zl2c_tender_params.
+
+    DATA: lt_sales_doc_data TYPE vlc_sdoc_item_t,
+          lt_tender_msg     TYPE zl2c_t_tender_msg,
+          lv_job            TYPE flag,
+          lt_job_param      TYPE cl_apj_rt_api=>tt_job_parameter_value.
+
+    DATA: lo_mass_change_util TYPE REF TO zcl_l2c_tender_mass_change_uti.
+
+    FIELD-SYMBOLS: <ls_sales_doc_data> TYPE vlc_sdoc_item,
+                   <ls_job_param>      LIKE LINE OF lt_job_param.
+
+    CREATE OBJECT lo_mass_change_util.
+
+    "Job or standard processing?
+    READ TABLE keys ASSIGNING FIELD-SYMBOL(<ls_keys>) INDEX 1.
+    IF  sy-subrc IS INITIAL.
+      lv_job = <ls_keys>-%param-job.
+    ENDIF.
+
+    IF lv_job IS INITIAL.
+      "standard synchronous processing
+      "Map Parameters
+      LOOP AT keys ASSIGNING <ls_keys>.
+        IF sy-tabix EQ 1.
+          ls_tender_params-function    = zcl_l2c_tender_mass_change_uti=>c_function-change_status.
+          ls_tender_params-zztstatus       = <ls_keys>-%param-zztstatus.
+          ls_tender_params-test        = <ls_keys>-%param-test.
+        ENDIF.
+
+        APPEND INITIAL LINE TO lt_sales_doc_data ASSIGNING <ls_sales_doc_data>.
+        <ls_sales_doc_data>-vbeln = <ls_keys>-salescontract.
+        <ls_sales_doc_data>-posnr = <ls_keys>-salescontractitem.
+      ENDLOOP.
+
+      TRY.
+
+          "Change Tender Documents
+          lo_mass_change_util->change_order(
+            EXPORTING
+              is_tender_params  = ls_tender_params
+              it_sales_doc_data = lt_sales_doc_data
+            IMPORTING
+              et_tender_msg     = lt_tender_msg ).
+
+          "Update Messages
+          lo_mass_change_util->update_messages( it_tender_msg = lt_tender_msg ).
+
+        CATCH zcx_l2c_message INTO DATA(lo_message).
+
+          IF lo_message->v_msgty CA 'EA'.
+            lv_severity = if_abap_behv_message=>severity-error.
+          ELSE.
+            lv_severity = if_abap_behv_message=>severity-success.
+          ENDIF.
+
+          APPEND VALUE #( %msg = new_message( id       = lo_message->v_msgid
+                                              number   = lo_message->v_msgno
+                                              v1       = lo_message->v_msgv1
+                                              v2       = lo_message->v_msgv2
+                                              v3       = lo_message->v_msgv3
+                                              v4       = lo_message->v_msgv4
+                                              severity = lv_severity ) ) TO reported-masschange.
+      ENDTRY.
+
+    ELSE.
+      "Process via application job
+      "Map Parameters
+      LOOP AT keys ASSIGNING <ls_keys>.
+        IF sy-tabix EQ 1.
+          lt_job_param = VALUE cl_apj_rt_api=>tt_job_parameter_value(
+          ( name = zcl_l2c_tender_application_job=>c_sel_function t_value = VALUE #( ( sign = 'I' option = 'EQ' low = zcl_l2c_tender_mass_change_uti=>c_function-change_status ) ) )
+          ( name = zcl_l2c_tender_application_job=>c_sel_zztstatus    t_value = VALUE #( ( sign = 'I' option = 'EQ' low = <ls_keys>-%param-zztstatus ) ) )
+          ( name = zcl_l2c_tender_application_job=>c_sel_test     t_value = VALUE #( ( sign = 'I' option = 'EQ' low = <ls_keys>-%param-test ) ) ) ).
+          APPEND INITIAL LINE TO lt_job_param ASSIGNING <ls_job_param>.
+          <ls_job_param>-name = zcl_l2c_tender_application_job=>c_sel_orders.
+          <ls_job_param>-t_value = VALUE #( ( sign = 'I' option = 'EQ' low = |{ <ls_keys>-salescontract }{ <ls_keys>-salescontractitem }| )  ).
+
+        ELSE.
+          READ TABLE lt_job_param ASSIGNING <ls_job_param> WITH KEY name = zcl_l2c_tender_application_job=>c_sel_orders.
+          IF sy-subrc IS INITIAL.
+            <ls_job_param>-t_value = VALUE #( BASE <ls_job_param>-t_value ( sign = 'I' option = 'EQ' low = |{ <ls_keys>-salescontract }{ <ls_keys>-salescontractitem }| )  ).
+          ENDIF.
+        ENDIF.
+      ENDLOOP.
+
+      start_application_job(
+        EXPORTING
+          iv_job_text            = 'Mass Change of Tender Documents: Change Tender Status'
+          it_job_parameter_value = lt_job_param
+          keys                   = keys
+          io_mass_change_util    = lo_mass_change_util
+        CHANGING
+          reported               = reported
+      ).
+
+    ENDIF.
+
+  ENDMETHOD.
+**********************************************************************
+
+  METHOD change_validity_date_fr.
+    DATA: lv_severity TYPE if_abap_behv_message=>t_severity.
+
+    DATA: ls_tender_params TYPE zl2c_tender_params.
+
+    DATA: lt_sales_doc_data TYPE vlc_sdoc_item_t,
+          lt_tender_msg     TYPE zl2c_t_tender_msg,
+          lv_job            TYPE flag,
+          lt_job_param      TYPE cl_apj_rt_api=>tt_job_parameter_value.
+
+    DATA: lo_mass_change_util TYPE REF TO zcl_l2c_tender_mass_change_uti.
+
+    FIELD-SYMBOLS: <ls_sales_doc_data> TYPE vlc_sdoc_item,
+                   <ls_job_param>      LIKE LINE OF lt_job_param.
+
+    CREATE OBJECT lo_mass_change_util.
+
+    "Job or standard processing?
+    READ TABLE keys ASSIGNING FIELD-SYMBOL(<ls_keys>) INDEX 1.
+    IF  sy-subrc IS INITIAL.
+      lv_job = <ls_keys>-%param-job.
+    ENDIF.
+
+    IF lv_job IS INITIAL.
+      "standard synchronous processing
+      "Map Parameters
+      LOOP AT keys ASSIGNING <ls_keys>.
+        IF sy-tabix EQ 1.
+          ls_tender_params-function    = zcl_l2c_tender_mass_change_uti=>c_function-change_validity_date.
+          ls_tender_params-guebg       = <ls_keys>-%param-guebg.
+*          ls_tender_params-gueen       = <ls_keys>-%param-gueen.
+          ls_tender_params-test        = <ls_keys>-%param-test.
+        ENDIF.
+
+        APPEND INITIAL LINE TO lt_sales_doc_data ASSIGNING <ls_sales_doc_data>.
+        <ls_sales_doc_data>-vbeln = <ls_keys>-salescontract.
+        <ls_sales_doc_data>-posnr = <ls_keys>-salescontractitem.
+      ENDLOOP.
+
+      TRY.
+
+          "Change Tender Documents
+          lo_mass_change_util->change_order(
+            EXPORTING
+              is_tender_params  = ls_tender_params
+              it_sales_doc_data = lt_sales_doc_data
+            IMPORTING
+              et_tender_msg     = lt_tender_msg ).
+
+          "Update Messages
+          lo_mass_change_util->update_messages( it_tender_msg = lt_tender_msg ).
+
+        CATCH zcx_l2c_message INTO DATA(lo_message).
+
+          IF lo_message->v_msgty CA 'EA'.
+            lv_severity = if_abap_behv_message=>severity-error.
+          ELSE.
+            lv_severity = if_abap_behv_message=>severity-success.
+          ENDIF.
+
+          APPEND VALUE #( %msg = new_message( id       = lo_message->v_msgid
+                                              number   = lo_message->v_msgno
+                                              v1       = lo_message->v_msgv1
+                                              v2       = lo_message->v_msgv2
+                                              v3       = lo_message->v_msgv3
+                                              v4       = lo_message->v_msgv4
+                                              severity = lv_severity ) ) TO reported-masschange.
+      ENDTRY.
+
+    ELSE.
+      "Process via application job
+      "Map Parameters
+      LOOP AT keys ASSIGNING <ls_keys>.
+        IF sy-tabix EQ 1.
+          lt_job_param = VALUE cl_apj_rt_api=>tt_job_parameter_value(
+          ( name = zcl_l2c_tender_application_job=>c_sel_function t_value = VALUE #( ( sign = 'I' option = 'EQ' low = zcl_l2c_tender_mass_change_uti=>c_function-change_validity_date ) ) )
+          ( name = zcl_l2c_tender_application_job=>c_sel_guebg    t_value = VALUE #( ( sign = 'I' option = 'EQ' low = <ls_keys>-%param-guebg ) ) )
+*          ( name = zcl_l2c_tender_application_job=>c_sel_gueen   t_value = VALUE #( ( sign = 'I' option = 'EQ' low = <ls_keys>-%param-gueen ) ) )
+          ( name = zcl_l2c_tender_application_job=>c_sel_test     t_value = VALUE #( ( sign = 'I' option = 'EQ' low = <ls_keys>-%param-test ) ) ) ).
+          APPEND INITIAL LINE TO lt_job_param ASSIGNING <ls_job_param>.
+          <ls_job_param>-name = zcl_l2c_tender_application_job=>c_sel_orders.
+          <ls_job_param>-t_value = VALUE #( ( sign = 'I' option = 'EQ' low = |{ <ls_keys>-salescontract }{ <ls_keys>-salescontractitem }| )  ).
+
+        ELSE.
+          READ TABLE lt_job_param ASSIGNING <ls_job_param> WITH KEY name = zcl_l2c_tender_application_job=>c_sel_orders.
+          IF sy-subrc IS INITIAL.
+            <ls_job_param>-t_value = VALUE #( BASE <ls_job_param>-t_value ( sign = 'I' option = 'EQ' low = |{ <ls_keys>-salescontract }{ <ls_keys>-salescontractitem }| )  ).
+          ENDIF.
+        ENDIF.
+      ENDLOOP.
+
+      start_application_job(
+        EXPORTING
+          iv_job_text            = 'Mass Change of Tender Documents: Change Validity date From'
+          it_job_parameter_value = lt_job_param
+          keys                   = keys
+          io_mass_change_util    = lo_mass_change_util
+        CHANGING
+          reported               = reported
+      ).
+
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD change_validity_date_to.
+    DATA: lv_severity TYPE if_abap_behv_message=>t_severity.
+
+    DATA: ls_tender_params TYPE zl2c_tender_params.
+
+    DATA: lt_sales_doc_data TYPE vlc_sdoc_item_t,
+          lt_tender_msg     TYPE zl2c_t_tender_msg,
+          lv_job            TYPE flag,
+          lt_job_param      TYPE cl_apj_rt_api=>tt_job_parameter_value.
+
+    DATA: lo_mass_change_util TYPE REF TO zcl_l2c_tender_mass_change_uti.
+
+    FIELD-SYMBOLS: <ls_sales_doc_data> TYPE vlc_sdoc_item,
+                   <ls_job_param>      LIKE LINE OF lt_job_param.
+
+    CREATE OBJECT lo_mass_change_util.
+
+    "Job or standard processing?
+    READ TABLE keys ASSIGNING FIELD-SYMBOL(<ls_keys>) INDEX 1.
+    IF  sy-subrc IS INITIAL.
+      lv_job = <ls_keys>-%param-job.
+    ENDIF.
+
+    IF lv_job IS INITIAL.
+      "standard synchronous processing
+      "Map Parameters
+      LOOP AT keys ASSIGNING <ls_keys>.
+        IF sy-tabix EQ 1.
+          ls_tender_params-function    = zcl_l2c_tender_mass_change_uti=>c_function-change_validity_date.
+*          ls_tender_params-guebg       = <ls_keys>-%param-guebg.
+          ls_tender_params-gueen       = <ls_keys>-%param-gueen.
+          ls_tender_params-test        = <ls_keys>-%param-test.
+        ENDIF.
+
+        APPEND INITIAL LINE TO lt_sales_doc_data ASSIGNING <ls_sales_doc_data>.
+        <ls_sales_doc_data>-vbeln = <ls_keys>-salescontract.
+        <ls_sales_doc_data>-posnr = <ls_keys>-salescontractitem.
+      ENDLOOP.
+
+      TRY.
+
+          "Change Tender Documents
+          lo_mass_change_util->change_order(
+            EXPORTING
+              is_tender_params  = ls_tender_params
+              it_sales_doc_data = lt_sales_doc_data
+            IMPORTING
+              et_tender_msg     = lt_tender_msg ).
+
+          "Update Messages
+          lo_mass_change_util->update_messages( it_tender_msg = lt_tender_msg ).
+
+        CATCH zcx_l2c_message INTO DATA(lo_message).
+
+          IF lo_message->v_msgty CA 'EA'.
+            lv_severity = if_abap_behv_message=>severity-error.
+          ELSE.
+            lv_severity = if_abap_behv_message=>severity-success.
+          ENDIF.
+
+          APPEND VALUE #( %msg = new_message( id       = lo_message->v_msgid
+                                              number   = lo_message->v_msgno
+                                              v1       = lo_message->v_msgv1
+                                              v2       = lo_message->v_msgv2
+                                              v3       = lo_message->v_msgv3
+                                              v4       = lo_message->v_msgv4
+                                              severity = lv_severity ) ) TO reported-masschange.
+      ENDTRY.
+
+    ELSE.
+      "Process via application job
+      "Map Parameters
+      LOOP AT keys ASSIGNING <ls_keys>.
+        IF sy-tabix EQ 1.
+          lt_job_param = VALUE cl_apj_rt_api=>tt_job_parameter_value(
+          ( name = zcl_l2c_tender_application_job=>c_sel_function t_value = VALUE #( ( sign = 'I' option = 'EQ' low = zcl_l2c_tender_mass_change_uti=>c_function-change_validity_date ) ) )
+*          ( name = zcl_l2c_tender_application_job=>c_sel_guebg    t_value = VALUE #( ( sign = 'I' option = 'EQ' low = <ls_keys>-%param-guebg ) ) )
+          ( name = zcl_l2c_tender_application_job=>c_sel_gueen   t_value = VALUE #( ( sign = 'I' option = 'EQ' low = <ls_keys>-%param-gueen ) ) )
+          ( name = zcl_l2c_tender_application_job=>c_sel_test     t_value = VALUE #( ( sign = 'I' option = 'EQ' low = <ls_keys>-%param-test ) ) ) ).
+          APPEND INITIAL LINE TO lt_job_param ASSIGNING <ls_job_param>.
+          <ls_job_param>-name = zcl_l2c_tender_application_job=>c_sel_orders.
+          <ls_job_param>-t_value = VALUE #( ( sign = 'I' option = 'EQ' low = |{ <ls_keys>-salescontract }{ <ls_keys>-salescontractitem }| )  ).
+
+        ELSE.
+          READ TABLE lt_job_param ASSIGNING <ls_job_param> WITH KEY name = zcl_l2c_tender_application_job=>c_sel_orders.
+          IF sy-subrc IS INITIAL.
+            <ls_job_param>-t_value = VALUE #( BASE <ls_job_param>-t_value ( sign = 'I' option = 'EQ' low = |{ <ls_keys>-salescontract }{ <ls_keys>-salescontractitem }| )  ).
+          ENDIF.
+        ENDIF.
+      ENDLOOP.
+
+      start_application_job(
+        EXPORTING
+          iv_job_text            = 'Mass Change of Tender Documents: Change Validity date To'
+          it_job_parameter_value = lt_job_param
+          keys                   = keys
+          io_mass_change_util    = lo_mass_change_util
+        CHANGING
+          reported               = reported
+      ).
+
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD get_instance_features.
+    DATA(lo_tenderr) = zcl_l2c_tender_mass_change_uti=>get_instance( ).
+    DATA(lv_selmode) = lo_tenderr->get_selmode( ).
+    IF lv_selmode EQ 'H'.
+      DATA(lv_change_status)        = if_abap_behv=>fc-o-enabled.
+      DATA(lv_change_validity_date) = if_abap_behv=>fc-o-enabled.
+      DATA(lv_add_material)         = if_abap_behv=>fc-o-enabled.
+      DATA(lv_change_material)      = if_abap_behv=>fc-o-disabled.
+      DATA(lv_reject_material)      = if_abap_behv=>fc-o-disabled.
+      DATA(lv_remove_rejection)     = if_abap_behv=>fc-o-disabled.
+    ELSE.
+      lv_change_status         = if_abap_behv=>fc-o-disabled.
+      lv_change_validity_date  = if_abap_behv=>fc-o-disabled.
+      lv_add_material          = if_abap_behv=>fc-o-disabled.
+      lv_change_material       = if_abap_behv=>fc-o-enabled.
+      lv_reject_material       = if_abap_behv=>fc-o-enabled.
+      lv_remove_rejection      = if_abap_behv=>fc-o-enabled.
+    ENDIF.
+
+    LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_key>).
+
+      APPEND VALUE #( salescontract                = <ls_key>-salescontract
+                      salescontractitem            = <ls_key>-salescontractitem
+                      %action-change_status        = lv_change_status
+                      %action-change_validity_date_fr = lv_change_validity_date
+                      %action-change_validity_date_to = lv_change_validity_date
+                      %action-add_material         = lv_add_material
+                      %action-change_material      = lv_change_material
+                      %action-reject_material      = lv_reject_material
+                      %action-remove_rejection     = lv_remove_rejection
+                      ) TO result.
+
+    ENDLOOP.
+
+  ENDMETHOD.
+
+ENDCLASS.
+
+CLASS lsc_zl2c_i_tender_mass_change DEFINITION INHERITING FROM cl_abap_behavior_saver.
+  PROTECTED SECTION.
+
+    METHODS finalize REDEFINITION.
+
+    METHODS check_before_save REDEFINITION.
+
+    METHODS save REDEFINITION.
+
+    METHODS cleanup REDEFINITION.
+
+    METHODS cleanup_finalize REDEFINITION.
+
+ENDCLASS.
+
+CLASS lsc_zl2c_i_tender_mass_change IMPLEMENTATION.
+
+  METHOD finalize.
+  ENDMETHOD.
+
+  METHOD check_before_save.
+  ENDMETHOD.
+
+  METHOD save.
+  ENDMETHOD.
+
+  METHOD cleanup.
+  ENDMETHOD.
+
+  METHOD cleanup_finalize.
+  ENDMETHOD.
+
+ENDCLASS.
