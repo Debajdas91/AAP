@@ -1,0 +1,153 @@
+@EndUserText.label: 'Tender: Reject Material'
+@VDM.usage.type: [#ACTION_PARAMETER_STRUCTURE]
+define abstract entity ZL2C_D_TENDER_REJECT_MATERIAL
+{
+  @EndUserText.label  : 'Reason for Rejection'
+  @ObjectModel.mandatory :true
+  @Consumption.valueHelpDefinition: [{
+    entity  : { name: 'ZL2C_I_TENDER_ABGRU_noempty_VH',  element: 'ReasonForRejection' },
+    label   : 'Reason For Rejection',
+    useForValidation: true }]
+  @Consumption.defaultValue: 'ZR'    
+  ABGRU     : abgru_va;
+  @EndUserText.label  : 'Test Mode'
+  @Consumption.defaultValue: 'X'
+  TEST      : flag;
+  
+  @EndUserText.label  : 'Start Processing as Background Job'
+  @Consumption.defaultValue: ' '
+  JOB   : flag;    
+}
+
+
+
+
+@EndUserText.label: 'Tender: Change Material'
+@VDM.usage.type: [#ACTION_PARAMETER_STRUCTURE]
+define abstract entity ZL2C_D_TENDER_CHANGE_MATERIAL
+{
+  @EndUserText.label  : 'Old Base Material'
+  @ObjectModel.mandatory :true
+  @Consumption.valueHelpDefinition: [{
+    entity  : { name: 'ZL2C_I_TENDER_BISMT_VH',  element: 'BaseMaterial' },
+    label   : 'Base Material',
+    useForValidation: true }]
+  OLD_BISMT : bismt;
+  
+   @EndUserText.label  : 'Reason for Rejection for Old Material'
+  @ObjectModel.mandatory : false
+  @Consumption.valueHelpDefinition: [{
+    entity  : { name: 'ZL2C_I_TENDER_ABGRU_VH',  element: 'ReasonForRejection' },
+    label   : 'Reason For Rejection',
+    useForValidation: true }]
+  @Consumption.defaultValue: 'YM'    
+  ABGRU     : abgru_va; 
+  
+//  @EndUserText.label  : 'New Material'
+//  @ObjectModel.mandatory :true
+//  @Consumption.valueHelpDefinition: [{
+//    entity  : { name: 'zl2c_i_tender_material_vh',  element: 'Material' },
+//    label   : 'Material',
+//    useForValidation: true }]
+//  NEW_MATNR : matnr;
+
+  @EndUserText.label  : 'New Base Material'
+  @ObjectModel.mandatory :true
+  @Consumption.valueHelpDefinition: [{
+    entity  : { name: 'ZL2C_I_TENDER_BISMT_VH',  element: 'BaseMaterial' },
+    label   : 'Base Material',
+    useForValidation: true }]
+  NEW_BISMT : bismt;
+  
+   @EndUserText.label  : 'Reason for Rejection for New Material'
+  @ObjectModel.mandatory : false
+  @Consumption.valueHelpDefinition: [{
+    entity  : { name: 'ZL2C_I_TENDER_ABGRU_VH',  element: 'ReasonForRejection' },
+    label   : 'Reason For Rejection',
+    useForValidation: true }]
+  @Consumption.defaultValue: ''    
+  NEW_ABGRU     : abgru_va;     
+
+  @EndUserText.label  : 'Test Mode'
+  @Consumption.defaultValue: 'X'
+  TEST      : flag;
+  
+  @EndUserText.label  : 'Start Processing as Background Job'
+  @Consumption.defaultValue: ' '
+  JOB   : flag;    
+}
+
+
+
+@EndUserText.label: 'Tender: Add Material'
+@VDM.usage.type: [#ACTION_PARAMETER_STRUCTURE]
+define abstract entity ZL2C_D_TENDER_ADD_MATERIAL
+{
+  @EndUserText.label  : 'Material'
+  @ObjectModel.mandatory :true
+  @Consumption.valueHelpDefinition: [{
+    entity: { name: 'zl2c_i_tender_material_vh',  element: 'Material' },
+    label: 'Material',
+    useForValidation: true   }]
+  MATNR  : matnr;
+  @EndUserText.label  : 'Condition Quantity'
+  @ObjectModel.mandatory :true
+  @Semantics.quantity.unitOfMeasure: 'VRKME'
+  KWMENG : kwmeng;
+  @EndUserText.label  : 'Condition UoM'
+  @ObjectModel.mandatory :true
+  @Semantics.unitOfMeasure: true
+  @Consumption.valueHelpDefinition: [{
+  entity : { name: 'zl2c_i_tender_unit_vh',  element: 'UnitOfMeasure' },
+  label  : 'Unit Of Measure',
+  useForValidation: true }]
+  VRKME  : vrkme;
+  @EndUserText.label  : 'Condition Value'
+  @ObjectModel.mandatory :true
+  @Semantics.amount.currencyCode: 'KOEIN'
+  KBETR  : kbetr;
+  @UI.hidden: true
+  //  @ObjectModel.enabled: false
+  KOEIN  : koein;
+  @EndUserText.label  : 'Test Mode'
+  @Consumption.defaultValue: 'X'
+  TEST   : flag;
+
+
+  @EndUserText.label  : 'Start Processing as Background Job'
+  @Consumption.defaultValue: ' '
+  JOB    : flag;
+}
+
+
+
+@EndUserText.label: 'Tender: Remove Rejection'
+@VDM.usage.type: [#ACTION_PARAMETER_STRUCTURE]
+define abstract entity ZL2C_D_TENDER_REMOVE_REJECTION
+{
+  @EndUserText.label  : 'Test Mode'
+  @Consumption.defaultValue: 'X'
+  TEST      : flag;
+  
+  @EndUserText.label  : 'Start Processing as Background Job'
+  @Consumption.defaultValue: ' '
+  JOB   : flag;    
+}
+
+
+@EndUserText.label: 'Mass change of Tenders: read settings'
+@VDM.usage.type: [#ACTION_PARAMETER_STRUCTURE]
+@ObjectModel.resultSet.sizeCategory: #XS
+@Metadata.allowExtensions: true
+define abstract entity ZL2C_D_TENDER_m_SETTINGS_POPUP
+{
+  @EndUserText.label  : 'Read settings'
+  @ObjectModel.mandatory :true
+  @Consumption.valueHelpDefinition: [{
+      entity: { name: 'zl2c_i_tender_m_readmodes_vh',  element: 'SelMode' },
+      useForValidation: true}]
+  readmode : zl2c_tender_mass_selmode;
+}
+
+
+
