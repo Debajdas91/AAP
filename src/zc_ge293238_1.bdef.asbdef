@@ -17,6 +17,7 @@ use etag
   use action Resume;
   use action Prepare;
 
+  use event statusUpdated;
 // should be updatable via EML calls
 // that are not using "in local mode"
 field ( readonly )
