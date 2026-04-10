@@ -59,6 +59,14 @@ CLASS LHC_ZR_GE293238_1 DEFINITION INHERITING FROM CL_ABAP_BEHAVIOR_HANDLER.
 
           METHODS setStatusToSaved FOR DETERMINE ON SAVE
             IMPORTING keys FOR ShoppingCart~setStatusToSaved.
+          METHODS validateOrderedItem FOR VALIDATE ON SAVE
+            IMPORTING keys FOR ShoppingCart~validateOrderedItem.
+
+          METHODS validateOrderQuantity FOR VALIDATE ON SAVE
+            IMPORTING keys FOR ShoppingCart~validateOrderQuantity.
+
+          METHODS validateRequestedDeliveryDate FOR VALIDATE ON SAVE
+            IMPORTING keys FOR ShoppingCart~validateRequestedDeliveryDate.
 ENDCLASS.
 
 CLASS LHC_ZR_GE293238_1 IMPLEMENTATION.
@@ -150,5 +158,138 @@ CLASS LHC_ZR_GE293238_1 IMPLEMENTATION.
   ENDMETHOD.
 
 
+
+  METHOD validateOrderedItem.
+
+  "For your convinience there is a central class ZAX_AC_EXCEPTIONS that is beeing used here.
+
+    READ ENTITIES OF zr_GE293238_1 IN LOCAL MODE
+       ENTITY ShoppingCart
+         FIELDS (  OrderedItem )
+         WITH CORRESPONDING #( keys )
+       RESULT DATA(entities).
+
+    LOOP AT entities INTO DATA(entity).
+      APPEND VALUE #(  %tky               = entity-%tky
+                       %state_area        = 'VALIDATE_ORDERED_ITEM' ) TO reported-shoppingcart.
+      IF entity-OrderedItem IS INITIAL.
+        APPEND VALUE #( %tky = entity-%tky ) TO failed-shoppingcart.
+
+        APPEND VALUE #( %tky               = entity-%tky
+                        %state_area        = 'VALIDATE_ORDERED_ITEM'
+                        %msg               = NEW zcx_ac_exceptions(
+                                                 textid   = zcx_ac_exceptions=>enter_order_item
+                                                 severity = if_abap_behv_message=>severity-error )
+                        %element-ordereditem = if_abap_behv=>mk-on ) TO reported-shoppingcart.
+      ENDIF.
+
+      "For your convenience there are GLOBAL defined types available:
+      DATA product_api TYPE REF TO zcl_AC_PRODUCT_API.
+      DATA business_data TYPE zcl_AC_PRODUCT_API=>t_business_data_external.
+
+      "... later on, you will be replacing them with your own types.
+      "DATA product_api TYPE REF TO zcl_GE293238_PRODUCT_API.
+      "DATA business_data TYPE zcl_GE293238_PRODUCT_API=>t_business_data_external.
+
+      DATA filter_conditions  TYPE if_rap_query_filter=>tt_name_range_pairs .
+      DATA ranges_table TYPE if_rap_query_filter=>tt_range_option .
+
+      product_api = NEW #(  ).
+
+      ranges_table = VALUE #(
+                              (  sign = 'I' option = 'EQ' low = entity-OrderedItem )
+                            ).
+
+      filter_conditions = VALUE #( ( name = 'PRODUCT'  range = ranges_table ) ).
+
+      TRY.
+          product_api->get_products(
+            EXPORTING
+              it_filter_cond    = filter_conditions
+              top               =  50
+              skip              =  0
+            IMPORTING
+              et_business_data  = business_data
+            ) .
+
+          IF business_data IS INITIAL.
+            APPEND VALUE #( %tky               = entity-%tky
+                            %state_area        = 'VALIDATE_ORDERED_ITEM'
+                            %msg               = NEW zcx_ac_exceptions(
+                                                     textid   = zcx_ac_exceptions=>product_unkown
+                                                     severity = if_abap_behv_message=>severity-error )
+                            %element-ordereditem = if_abap_behv=>mk-on ) TO reported-shoppingcart.
+          ENDIF.
+
+        CATCH cx_root INTO DATA(exception).
+          ASSERT 1 = 2.
+*          out->write( cl_message_helper=>get_latest_t100_exception( exception )->if_message~get_longtext( ) ).
+      ENDTRY.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD validateOrderQuantity.
+
+  READ ENTITIES OF ZR_GE293238_1 IN LOCAL MODE
+    ENTITY ShoppingCart
+      FIELDS ( OrderQuantity )
+      WITH CORRESPONDING #( keys )
+    RESULT DATA(entities).
+
+  LOOP AT entities INTO DATA(entity).
+    " Check if OrderQuantity is initial
+    IF entity-OrderQuantity IS INITIAL.
+      APPEND VALUE #( %tky = entity-%tky ) TO failed-ShoppingCart.
+      APPEND VALUE #(
+          %tky        = entity-%tky
+          %state_area = 'Validation'
+          %msg        = new_message_with_text(
+                          text     = 'Order Quantity must not be initial.'
+                          severity = if_abap_behv_message=>severity-error
+                        )
+      ) TO reported-ShoppingCart.
+    ENDIF.
+  ENDLOOP.
+  ENDMETHOD.
+
+  METHOD validateRequestedDeliveryDate.
+
+  READ ENTITIES OF ZR_GE293238_1 IN LOCAL MODE
+    ENTITY ShoppingCart
+      FIELDS ( RequestedDeliveryDate )
+      WITH CORRESPONDING #( keys )
+    RESULT DATA(entities).
+
+  LOOP AT entities INTO DATA(entity).
+    " Check if RequestedDeliveryDate is initial
+    IF entity-RequestedDeliveryDate IS INITIAL.
+      APPEND VALUE #( %tky = entity-%tky ) TO failed-ShoppingCart.
+      APPEND VALUE #(
+          %tky        = entity-%tky
+          %state_area = 'Validation'
+          %msg        = new_message_with_text(
+                          text     = 'Requested Delivery Date must not be initial.'
+                          severity = if_abap_behv_message=>severity-error
+                        )
+      ) TO reported-ShoppingCart.
+      CONTINUE.
+    ENDIF.
+
+    " Check if RequestedDeliveryDate is in the future
+    IF entity-RequestedDeliveryDate <= cl_abap_context_info=>get_system_date( ).
+      APPEND VALUE #( %tky = entity-%tky ) TO failed-ShoppingCart.
+      APPEND VALUE #(
+          %tky        = entity-%tky
+          %state_area = 'Validation'
+          %msg        = new_message_with_text(
+                          text     = 'Requested Delivery Date must be in the future.'
+                          severity = if_abap_behv_message=>severity-error
+                        )
+      ) TO reported-ShoppingCart.
+    ENDIF.
+  ENDLOOP.
+
+  ENDMETHOD.
 
 ENDCLASS.

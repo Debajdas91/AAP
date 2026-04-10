@@ -22,6 +22,12 @@ authorization master( global )
   field ( numbering : managed )
    OrderUUID;
 
+//mark mandatory field
+  field( mandatory )
+  OrderQuantity,
+  OrderedItem,
+  RequestedDeliveryDate
+  ;
   event statusUpdated for side effects;
 
   side effects {
@@ -31,6 +37,11 @@ authorization master( global )
   //additional readonly field
    field ( readonly )
    OrderId;
+
+
+  validation validateOrderedItem on save { create; field OrderedItem; }
+  validation validateRequestedDeliveryDate on save { create; field RequestedDeliveryDate; }
+  validation validateOrderQuantity on save { create; field OrderQuantity; }
 
   create;
   update;
@@ -43,7 +54,15 @@ authorization master( global )
   draft action Discard;
   draft action Edit;
   draft action Resume;
-  draft determine action Prepare;
+  draft determine action Prepare
+  {
+     validation validateOrderedItem;
+     validation validateRequestedDeliveryDate;
+     validation validateOrderQuantity;
+
+  }
+
+
 
   mapping for ZGE293238_1 corresponding extensible
   {
