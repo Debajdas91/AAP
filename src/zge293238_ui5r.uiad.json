@@ -1,0 +1,34 @@
+{
+  "formatVersion": "2",
+  "header": {
+    "description": "An SAP Fiori application.",
+    "originalLanguage": "en",
+    "abapLanguageVersion": "cloudDevelopment"
+  },
+  "generalInformation": {
+    "appType": "ui5",
+    "catalogId": "SAP_TC_UI5_REPO_UIAD",
+    "targetMappingTitle": "ShoppingCart App GE293238"
+  },
+  "ui5AppDetails": {
+    "appId": "fiorishoppingcart.ge293238"
+  },
+  "navigation": {
+    "targetMappingId": "UI5R_1C9D79BAA7835041766240CDF8401DD35CF80426_TM",
+    "semanticObject": "zGE293238",
+    "action": "display",
+    "desktop": true,
+    "tablet": true,
+    "phone": true
+  },
+  "tiles": [
+    {
+      "id": "UI5R_1C9D79BAA7835041766240CDF8401DD35CF80426_AL",
+      "tileType": "static",
+      "isDefault": true,
+      "standard": {
+        "title": "ShoppingCart App GE293238"
+      }
+    }
+  ]
+}

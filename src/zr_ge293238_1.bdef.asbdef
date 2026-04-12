@@ -32,27 +32,27 @@ authorization master( global )
 
   side effects {
   event statusUpdated affects field ( TotalPrice, Notes, OverallStatus, SalesOrderStatus,
-     Salesorder, ManageSalesOrderUrl );
+     Salesorder, ManageSalesOrderUrl ), permissions ( action Edit, update, delete )  ;
   }
   //additional readonly field
    field ( readonly )
    OrderId;
 
 
-  validation validateOrderedItem on save { create; field OrderedItem; }
-  validation validateRequestedDeliveryDate on save { create; field RequestedDeliveryDate; }
-  validation validateOrderQuantity on save { create; field OrderQuantity; }
+  validation validateOrderedItem on save { create; update; field OrderedItem; }
+  validation validateRequestedDeliveryDate on save { create; update ; field RequestedDeliveryDate; }
+  validation validateOrderQuantity on save { create; update ; field OrderQuantity; }
 
   create;
-  update;
-  delete;
+  update ( features : instance );
+  delete ( features : instance );
 
   determination setStatusToNew on modify { create; }
   determination calculateOrderID on save { create; }
   determination setStatusToSaved on save { create; }
   draft action Activate optimized;
   draft action Discard;
-  draft action Edit;
+  draft action ( features : instance ) Edit;
   draft action Resume;
   draft determine action Prepare
   {

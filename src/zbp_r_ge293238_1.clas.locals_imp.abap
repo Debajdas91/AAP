@@ -67,6 +67,8 @@ CLASS LHC_ZR_GE293238_1 DEFINITION INHERITING FROM CL_ABAP_BEHAVIOR_HANDLER.
 
           METHODS validateRequestedDeliveryDate FOR VALIDATE ON SAVE
             IMPORTING keys FOR ShoppingCart~validateRequestedDeliveryDate.
+          METHODS get_instance_features FOR INSTANCE FEATURES
+            IMPORTING keys REQUEST requested_features FOR ShoppingCart RESULT result.
 ENDCLASS.
 
 CLASS LHC_ZR_GE293238_1 IMPLEMENTATION.
@@ -291,5 +293,29 @@ CLASS LHC_ZR_GE293238_1 IMPLEMENTATION.
   ENDLOOP.
 
   ENDMETHOD.
+
+  METHOD get_instance_features.
+   " read relevant shopping cart instance data
+ READ ENTITIES OF ZR_GE293238_1 IN LOCAL MODE
+   ENTITY ShoppingCart
+     FIELDS ( OrderUuid OverallStatus )
+     WITH CORRESPONDING #( keys )
+   RESULT DATA(entities)
+   FAILED failed.
+
+ " evaluate the conditions, set the operation state, and set result parameter
+ result = VALUE #( FOR entity IN entities
+                 ( %tky                   = entity-%tky
+
+                   %features-%update      = COND #( WHEN entity-OverallStatus = zbp_r_GE293238_1=>order_state-released
+                                                    THEN if_abap_behv=>fc-o-disabled ELSE if_abap_behv=>fc-o-enabled   )
+                   %features-%delete      = COND #( WHEN entity-OverallStatus = zbp_r_GE293238_1=>order_state-released
+                                                    THEN if_abap_behv=>fc-o-disabled ELSE if_abap_behv=>fc-o-enabled )
+                   %action-Edit           = COND #( WHEN entity-OverallStatus = zbp_r_GE293238_1=>order_state-released
+                                                    THEN if_abap_behv=>fc-o-disabled ELSE if_abap_behv=>fc-o-enabled )
+                 ) ).
+
+ ENDMETHOD.
+
 
 ENDCLASS.
